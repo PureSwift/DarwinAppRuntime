@@ -1,6 +1,15 @@
 # SwiftUI renderer — Design
 
-**Status:** proposed. Nothing here is implemented yet.
+**Status:** implemented (`DarwinUI`), with these differences from the
+design below:
+
+- **macOS 12 navigation** shows the top level with a toolbar back button,
+  since `NavigationView` is a split view on macOS; macOS 13+ uses
+  `NavigationStack`.
+- **IME composition** has no `UITextField` representable yet (§6): edits,
+  marked text included, are sent as they happen.
+- **Renderers** stay in `RendererScenes` after the guest releases them.
+- **One window** (§9): the host app shows the first renderer.
 
 The player (§9.4) for iOS 15+ and macOS 12+ is `DarwinUI`. It implements
 AppRuntime's `Renderer` contract (§9.3), turns render IR trees into SwiftUI
