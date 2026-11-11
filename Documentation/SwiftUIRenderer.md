@@ -8,8 +8,8 @@ design below:
   `NavigationStack`.
 - **IME composition** has no `UITextField` representable yet (§6): edits,
   marked text included, are sent as they happen.
-- **Renderers** stay in `RendererScenes` after the guest releases them.
-- **One window** (§9): the host app shows the first renderer.
+- **One window** (§9): the host app shows the first renderer the guest still
+  holds. Releasing a renderer removes its scene from `RendererScenes`.
 
 The player (§9.4) for iOS 15+ and macOS 12+ is `DarwinUI`. It implements
 AppRuntime's `Renderer` contract (§9.3), turns render IR trees into SwiftUI
