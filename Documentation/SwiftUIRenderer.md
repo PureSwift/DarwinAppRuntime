@@ -1,0 +1,223 @@
+# SwiftUI renderer — Design
+
+**Status:** proposed. Nothing here is implemented yet.
+
+The player (§9.4) for iOS 13+ and macOS 10.15+ is `DarwinUI`. It implements
+AppRuntime's `Renderer` contract (§9.3), turns render IR trees into SwiftUI
+views, and reports what the user does through `RendererDelegate`. The guest
+owns state and identity; the player owns layout, input, animation and
+accessibility. The vocabulary, events and byte format are defined in
+AppRuntime's `Documentation/RenderIR.md`; this document is how this player
+implements them.
+
+## 1. Shape
+
+```
+guest ──apply / replaceSubtree──► SwiftUIRenderer ──► RenderStore ──► NodeView(…) (SwiftUI)
+  ▲                                                                        │
+  └─────────────── event / rowCount / row ◄──── user input ◄───────────────┘
+```
+
+- **`SwiftUIRenderer`** is the `Renderer` contract implementation. `make`
+  receives the guest's `RendererDelegate`. `apply` and `replaceSubtree`
+  decode with `RenderCodec`, on the main thread, and update the store.
+- **`RenderStore`** holds one `NodeModel` per node ID.
+- **`NodeView`** draws one node from its model, and its children through
+  their own models.
+
+## 2. Store and invalidation
+
+The guest sends the smallest changed subtrees, and the store keeps SwiftUI's
+invalidation to those subtrees:
+
+- **`NodeModel`** is an `ObservableObject` (iOS 13; Observation needs iOS 17)
+  with one `@Published var node: RenderNode`, holding the node without its
+  children's content. Children are referenced by ID.
+- **`RenderStore`** maps `[RenderNode.ID: NodeModel]`.
+  - `apply(tree)` reuses the model for every ID still present, updates the
+    ones whose node changed, creates models for new IDs, and drops the rest.
+  - `replaceSubtree(id, tree)` does the same for that subtree only.
+  - An unchanged node keeps its model and doesn't publish, so its view
+    isn't re-evaluated.
+- **`NodeView(model)`** observes only its own model. It renders its children
+  as `ForEach(childIDs, id: \.self) { NodeView(store.model($0)) }`, so
+  SwiftUI's identity follows the guest's node IDs (`.id(node.id)` in the
+  design's terms). Native state, such as a scroll position, a text field's
+  focus or a toggle mid-animation, survives every update that keeps the ID.
+
+So an update costs a decode, a walk over the replaced subtree, and SwiftUI
+re-evaluating the views whose nodes changed.
+
+## 3. Nodes
+
+| IR type | SwiftUI | Availability notes |
+|---|---|---|
+| `Text` | `Text(verbatim:)` | — |
+| `Image` | `Image(systemName:)`, `Image(name, bundle: appResources)`; `resizable` → `.resizable()` | SF Symbols in SwiftUI need macOS 11; on 10.15 a symbol draws as nothing (logged once) |
+| `Label` | `Label(title, systemImage:)` | iOS 14 / macOS 11; before that an `HStack` of an image and text |
+| `Spacer` | `Spacer(minLength:)` | — |
+| `Divider` | `Divider()` | — |
+| `Color` | the color (§5) | — |
+| `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing | — |
+| `ScrollView` | `ScrollView(axes, showsIndicators:)` | — |
+| `Button` | `Button(action:) { children }`; the action sends `tap` | — |
+| `Toggle` | `Toggle(isOn:)` over a synced binding (§6) | — |
+| `TextField` | `TextField` / `SecureField`. Submit: `.onSubmit` on iOS 15 / macOS 12, `onCommit:` before | — |
+| `Slider` | `Slider(value:in:step:)` | — |
+| `Stepper` | `Stepper(value:in:step:) { label }` | — |
+| `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` | iOS 14 / macOS 11; before that `UIActivityIndicatorView` / `UIProgressView` (`NSProgressIndicator` on macOS) through a representable |
+| `List` (eager) | `List { rows }` | — |
+| `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) | — |
+| `Section` | `Section(header:footer:)` | — |
+| `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks | iOS 14 / macOS 11; before that `VStack` / `HStack` inside a `ScrollView`, fetching every row |
+| `NavStack`, `NavLevel`, `NavigationLink` | §8 | — |
+| anything else | `EmptyView()`, logged once per type | the vocabulary is add-only |
+
+## 4. Modifiers
+
+A node's modifiers fold in order over its view:
+`modifiers.reduce(AnyView(base)) { apply($1, to: $0) }`.
+
+- `AnyView` is the price of applying a list known only at run time. It's
+  cheap here, because the store already limits which views re-evaluate.
+- Unknown kinds are ignored.
+- SwiftUI already passes the inherited modifiers (`font`,
+  `foregroundColor`, `tint`, `lineLimit`, `multilineTextAlignment`,
+  `disabled`) down to descendants, which matches the IR's inheritance rule,
+  so they map one to one.
+
+| IR kind | SwiftUI |
+|---|---|
+| `padding` | `.padding(EdgeInsets(…))` |
+| `frame` | `.frame(width:height:alignment:)`, or the min/ideal/max form when any of those are present; `∞` is `.infinity` |
+| `offset` | `.offset(x:y:)` |
+| `background` | `.background(color)` |
+| `foregroundColor` | `.foregroundColor(_:)` |
+| `tint` | `.accentColor(_:)` before iOS 15 / macOS 12, then `.tint(_:)` |
+| `opacity`, `cornerRadius`, `shadow` | the same |
+| `border` | `.border(_:width:)` |
+| `font` | `Font` from `style` (`.largeTitle`, …) or `.system(size:weight:design:)`, plus `.italic()`. `largeTitle`, `title2` and `title3` are iOS 14 / macOS 11; before that they map to the nearest style |
+| `fontWeight`, `italic` | `.font` adjustments; `.fontWeight` |
+| `lineLimit`, `multilineTextAlignment` | the same |
+| `disabled` | `.disabled(_:)` |
+| `onTapGesture` | `.onTapGesture(count:)`, sending `tap` |
+| `accessibilityLabel` | `.accessibility(label:)`, or `.accessibilityLabel` on iOS 14 |
+| `accessibilityIdentifier` | `.accessibility(identifier:)`, or `.accessibilityIdentifier` on iOS 14 |
+
+## 5. Colors and fonts
+
+- **Named colors** map to the platform's semantic colors, so they follow
+  light and dark appearance and accessibility settings:
+  `primary` → `Color.primary`, `red` → `Color(UIColor.systemRed)`
+  (`NSColor.systemRed` on macOS), and so on. `mint`, `teal`, `cyan`,
+  `indigo` and `brown` fall back to fixed values where the OS predates them.
+- A **`[name, opacity]`** color applies `.opacity`.
+- A **fixed color** (`0xAARRGGBB`) becomes `Color(.sRGB, red:green:blue:opacity:)`.
+- Font **styles** scale with Dynamic Type. Fixed **sizes** don't, matching
+  SwiftUI's own `.system(size:)`.
+
+## 6. Events and control sync
+
+- **Taps** call `delegate.event(id, kind: tap, payload: [])`.
+- **Value changes** encode the new value as a payload: a bool, string,
+  double or int.
+- Every event is a synchronous `rt_call` into the guest. The guest answers
+  with `replaceSubtree` (or `apply`) before the call returns, because its
+  update goes out in `GuestExecutor.whenIdle`. So by the time the action
+  closure returns, the store holds the guest's answer.
+
+**Control sync** (§9.5). The guest's state is the source of truth, but a
+control has to stay responsive while the user is using it:
+
+- Each control's model keeps `rendered`: the value from the last node it
+  showed.
+- The control's binding reads a local value. On write, it updates the local
+  value and sends `change`.
+- When a new node arrives, the local value is replaced only if the node's
+  value differs from `rendered`, which then becomes the new value.
+
+The result:
+
+- Typing `abc` in a field the guest echoes unchanged never resets the
+  cursor.
+- A guest that rejects input (clamps a slider, filters characters) wins,
+  because its value differs from what was last rendered.
+- Text field edits during IME composition (marked text) are sent when
+  composition ends. That needs a `UITextField` representable on iOS 13–16;
+  later SwiftUI reports composition itself.
+
+## 7. Lazy containers
+
+A node with `count` has no children. `LazyRow(list, index)`:
+
+1. on first appearance calls `delegate.row(listID, index)`, a synchronous
+   call that returns an encoded subtree, and decodes it into the store under
+   a row scope;
+2. caches rows by `(list ID, index, revision)`.
+
+When `revision` changes, the player drops the cache. SwiftUI only
+re-evaluates the rows on screen, and each fetches its row again: exactly
+the rows the host shows, as the IR intends. `count` comes from the node;
+`rowCount` is for players whose recyclers ask for it separately.
+
+Row subtrees live in the same store, so a row's controls and links work like
+any other node. Events from a row reach the guest's per-row handlers by node
+ID.
+
+## 8. Navigation
+
+A `NavStack` node's children are its `NavLevel`s, root first.
+
+- **iOS 16+ / macOS 13+:** a `NavigationStack(path:)` whose path is the
+  level indices after the root, with `navigationDestination(for: Int.self)`
+  showing a level's `NodeView`.
+  - When the guest adds a level, the player appends to the path; SwiftUI
+    animates the push.
+  - When the user goes back (back button, swipe, menu), the path shrinks.
+    The player sends `pop` with the number of levels left, and shows what
+    SwiftUI shows until the guest's update arrives. That's during the
+    `pop` call itself, so in practice at once.
+- **iOS 13–15 / macOS 10.15–12:** a `NavigationView` with a chain of
+  `NavigationLink(isActive:)`, one per level. Setting a link's `isActive` to
+  false is the back navigation that sends `pop`.
+- **Titles:** `navigationTitle` (`navigationBarTitle` on iOS 13) from each
+  level's `title`.
+- **`NavigationLink` nodes** in a level render as buttons styled like links
+  (with a chevron in a `List`) that send `tap`. The guest then adds the
+  level, so the player never pushes on its own. One source of truth.
+
+## 9. Platforms
+
+- **iOS:** one `UIWindowScene` per renderer, hosting a
+  `UIHostingController(rootView: NodeView(root))`.
+- **macOS:** an `NSWindow` with an `NSHostingView`. A `List` uses the inset
+  style. The window's title is the root `NavLevel`'s title when there is
+  one.
+- **iPad multitasking and macOS window resizing** need nothing special:
+  layout is the player's, and the guest never sees sizes. `GeometryReader`
+  isn't in the IR yet.
+
+## 10. Testing
+
+- **Store tests**, without SwiftUI or a guest:
+  - `apply` and `replaceSubtree` keep models for surviving IDs;
+  - unchanged nodes don't publish;
+  - row caches drop on a new revision.
+- **Event tests** with a recording `RendererDelegate`: actions send the
+  right ID, kind and payload, and the control-sync rule holds when the guest
+  echoes, clamps or ignores a value.
+- **Rendering tests** host `NodeView` in a `UIHostingController` and walk the
+  view hierarchy and accessibility tree, without snapshot images, which are
+  brittle across OS versions.
+- **End to end:** XCUITest on the simulator with AppRuntime's `ExampleUI`,
+  as in `HostRuntime.md` §10.
+
+## 11. Open questions
+
+- **Animation.** The IR has no animation or transition kinds yet.
+  SwiftUI's default implicit animations apply to inserted and removed views;
+  whether a guest needs to say more waits for the vocabulary.
+- **Text input details:** keyboard type, content type, autocapitalization
+  and submit labels need IR props.
+- **Dynamic Type limits and right-to-left layout** come for free from
+  SwiftUI, but need testing with a real app.
