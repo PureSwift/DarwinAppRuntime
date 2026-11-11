@@ -1,8 +1,24 @@
 # Manifest and packager — Design
 
 **Status:** the portable stage (§1) is implemented in AppRuntime
-(PureSwift/AppRuntime#32). `darwin-app` (§2 on) is proposed; nothing of it
-is implemented yet.
+(PureSwift/AppRuntime#32), and `darwin-app` (§2 on) here, except `dev` and
+`xcodeproj`. Differences from the design below:
+
+- **The host is built per app** from a generated SwiftPM package that links
+  `DarwinHostApp` with the app's library, instead of a prebuilt
+  `DarwinHost.a` (§5). The work directory is reused between builds.
+  iOS builds cross-compile with `swift build --triple … --sdk …`, and pass
+  `-platform_version` so the binary records the real SDK version.
+- **Contracts the host lacks** are errors; `--allow-missing-contracts`
+  makes them warnings, and the guest then sees them as absent.
+- **Slice checks** read `LC_BUILD_VERSION` with `otool -l`, since `vtool`
+  rejects archives.
+- **The macOS icon** is an icon set rendered with `sips`: `actool` ignores a
+  single-size icon on macOS.
+- **NFC on macOS** is always an error, even when optional.
+- **wasm2c output** writes to stdout and stderr rather than `os_log`
+  (`RT_WASM2C_WRITE` isn't defined yet).
+- **`dev`** waits on `DarwinWasmHost` (`HostRuntime.md` §11).
 
 Packaging has two stages, in two repositories:
 
