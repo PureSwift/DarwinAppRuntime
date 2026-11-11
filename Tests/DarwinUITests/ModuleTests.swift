@@ -17,9 +17,34 @@ struct ModuleTests {
     }
 
     @Test func makeAddsTheRendererToTheScenes() {
-        let before = RendererScenes.shared.renderers.count
+        let before = RendererScenes.shared.scenes.count
         let renderer = SwiftUIRenderer.make(RecordingDelegate())
-        #expect(RendererScenes.shared.renderers.count == before + 1)
-        #expect(RendererScenes.shared.renderers.last === renderer)
+        #expect(RendererScenes.shared.scenes.count == before + 1)
+        #expect(RendererScenes.shared.scenes.last?.id == renderer.sceneID)
+        #expect(RendererScenes.shared.scenes.last?.store === renderer.store)
+    }
+
+    @Test func releasingTheRendererRemovesItsScene() {
+        let before = RendererScenes.shared.scenes.map(\.id)
+        weak var released: SwiftUIRenderer?
+        do {
+            let renderer = SwiftUIRenderer.make(RecordingDelegate())
+            released = renderer
+            #expect(RendererScenes.shared.scenes.map(\.id) == before + [renderer.sceneID])
+        }
+        #expect(released == nil)
+        #expect(RendererScenes.shared.scenes.map(\.id) == before)
+    }
+
+    @Test func aSceneDoesNotKeepItsRendererAlive() {
+        weak var released: SwiftUIRenderer?
+        var scene: RendererScene?
+        do {
+            let renderer = SwiftUIRenderer.make(RecordingDelegate())
+            released = renderer
+            scene = RendererScenes.shared.scenes.last
+        }
+        #expect(scene != nil)
+        #expect(released == nil)
     }
 }
