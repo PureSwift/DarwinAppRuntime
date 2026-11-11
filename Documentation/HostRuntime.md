@@ -1,7 +1,20 @@
 # Darwin host runtime — Design
 
-**Status:** proposed. Nothing here is implemented yet; the AppRuntime
-changes it needs have landed (`AppRuntimeChanges.md`).
+**Status:** implemented, with these differences from the design below:
+
+- **Modules** are `HostModule`s: each lists its contracts, registers its
+  implementations, and answers `Permissions` for the capabilities its
+  framework gates. `AppHost` registers only the modules whose contracts
+  the app uses.
+- **One window** shows the guest's first renderer (`RendererScenes`). A
+  scene per renderer is still open (§11).
+- **`requestAlwaysAuthorization`** checks the status first and asks iOS
+  for the when-in-use → always upgrade once per install (iOS shows that
+  prompt once). Every request gets an answer: when no prompt appears, or
+  the user keeps when-in-use, the current status is reported after the
+  prompt closes.
+- **Hardware paths** (Bluetooth, NFC, motion, location fixes) are tested
+  through their mappings and fake delegates; they haven't run on a device.
 
 The host runtime runs AppRuntime apps on iOS and macOS. It is everything
 AppRuntime's design (§2.3, §7.6) assigns to the host:
