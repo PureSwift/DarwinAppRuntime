@@ -26,18 +26,19 @@ final class HostSession: ObservableObject {
 
     @Published private(set) var state = State.starting
 
-    /// The renderer the window shows: the first one the guest made.
-    @Published private(set) var renderer: SwiftUIRenderer?
+    /// What the window shows: the first renderer the guest made and still
+    /// holds.
+    @Published private(set) var scene: RendererScene?
 
     private(set) var host: AppHost?
 
-    private var renderers: AnyCancellable?
+    private var scenes: AnyCancellable?
 
     init() {
-        renderers = RendererScenes.shared.$renderers
+        scenes = RendererScenes.shared.$scenes
             .map(\.first)
-            .sink { [weak self] renderer in
-                self?.renderer = renderer
+            .sink { [weak self] scene in
+                self?.scene = scene
             }
     }
 
