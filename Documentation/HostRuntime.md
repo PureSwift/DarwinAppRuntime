@@ -1,6 +1,7 @@
 # Darwin host runtime — Design
 
-**Status:** proposed. Nothing here is implemented yet.
+**Status:** proposed. Nothing here is implemented yet; the AppRuntime
+changes it needs have landed (`AppRuntimeChanges.md`).
 
 The host runtime runs AppRuntime apps on iOS and macOS. It is everything
 AppRuntime's design (§2.3, §7.6) assigns to the host:
@@ -21,13 +22,14 @@ References like §7.6 are to `Documentation/DynamicRuntime.md` in AppRuntime.
 
 | In | Out (for now) |
 |---|---|
-| iOS 13+ on device (`ios-arm64` slices), iOS Simulator, macOS 10.15+ (`macos` slices, arm64 and x86_64) | iOS 6 armv7: Swift-iOS6's backend is a separate host |
+| iOS 15+ on device (`ios-arm64` slices) and in the Simulator (`ios-simulator` slices, arm64 and x86_64), macOS 12+ (`macos` slices, arm64 and x86_64) | iOS 6 armv7: Swift-iOS6's backend is a separate host |
 | The Swift-registry backend: contracts implemented in Swift | The ObjC backend (§6): native-class bindings through `objc_msgSend`, for apps that call UIKit directly |
 | Every contract AppRuntime declares today | tvOS, watchOS, visionOS: the slices exist; the hosts follow once iOS works |
 
-The minimums match the slices. `guest.py` stamps `ios-arm64` slices for
-iOS 13.0 and `macos` slices for 10.15, and SwiftUI needs iOS 13 / macOS
-10.15.
+iOS 15 and macOS 12 are the oldest deployment targets current Xcode
+accepts, and AppRuntime's own minimums. `guest.py` stamps the slices lower
+(`ios-arm64` and `ios-simulator` for iOS 13.0, `macos` for 10.15 / 11.0),
+so every slice loads on every OS the host supports.
 
 ## 2. Process model
 
@@ -53,26 +55,27 @@ The guest calls the host through `rt.h`, and the host calls back through
 
 | Engine | When | Where | Notes |
 |---|---|---|---|
-| **Native slice** | The bundle has a slice for the platform | iOS device, macOS | The packager links `libapp.a`. It's the fastest, and needs no translation. |
-| **wasm2c** | No native slice: the iOS Simulator (until AppRuntime builds simulator slices), or apps shipped without native slices | Everywhere | The packager translates `App.wasm` to C and compiles it for the target, behind an `rt` import shim. No interpreter ships, so App Store builds can use it (§14). |
-| **WasmKit** | Development: hot reload and loading a new `App.wasm` without relinking | macOS 15+, iOS 18+ (WasmKit's own minimums) | Never in App Store builds. It lives in a separate package (`DarwinWasmHost`), since SwiftPM won't mix platform minimums within a package. |
+| **Native slice** | The bundle has a slice for the platform | iOS device, iOS Simulator, macOS | The packager links `libapp.a`. It's the fastest, and needs no translation. |
+| **wasm2c** | No native slice: apps shipped without one for the platform | Everywhere | The packager runs AppRuntime's `Scripts/wasm2c-shim.py build`, which translates `App.wasm` to C with WABT's wasm2c and seals it, behind a generated `rt` import shim, into a `libapp.a` the host links like a slice. No interpreter ships, so App Store builds can use it (§14). |
+| **WasmKit** | Development: hot reload and loading a new `App.wasm` without relinking | macOS 15+, iOS 18+ (WasmKit's own minimums) | Never in App Store builds. It lives in a separate package (`DarwinWasmHost`), since SwiftPM rejects a dependency whose minimum is higher than its client's (§11). |
 
 All three use the same runtime core: the same handle table, contracts and
 renderer. Only what implements `rt_dispatch` and the imports differs:
 
 - **native:** the C symbols are direct calls;
-- **wasm2c:** a shim converts guest offsets to pointers, like `RuntimeWasm`'s
-  import shim, but as generated C;
+- **wasm2c:** the generated shim copies between guest memory and the host
+  with bounds checks, like `RuntimeWasm`'s import shim but in C, and
+  exports the same `rt_main` / `rt_dispatch` / `rt_finalize` as a slice;
 - **WasmKit:** `RuntimeWasm`.
 
 ## 3. Modules
 
-One Swift package, `DarwinAppRuntime`, with a minimum of iOS 13 / macOS
-10.15:
+One Swift package, `DarwinAppRuntime`, with a minimum of iOS 15 / macOS 12.
+It depends on AppRuntime without the `GuestExports` trait (§8):
 
 | Module | Contents |
 |---|---|
-| `DarwinHost` | Startup, bundle checks, engine selection, lifecycle, `HostClock`, the main-thread executor for callbacks, and the built-in contracts the core doesn't serve (`Permissions`, `Bundle`, `Application`; see `AppRuntimeChanges.md`) |
+| `DarwinHost` | Startup, bundle checks, engine selection, lifecycle, `HostClock`, the main-thread executor for callbacks, and the built-in contracts the core doesn't serve (`Permissions`, `AppBundle`, `Application`; §6) |
 | `DarwinBluetooth` | `Central` and friends over CoreBluetooth |
 | `DarwinLocation` | `LocationManager` over CoreLocation |
 | `DarwinMotion` | `MotionManager`, `Pedometer`, `Altimeter`, `ActivityRecognizer` over CoreMotion |
@@ -81,7 +84,7 @@ One Swift package, `DarwinAppRuntime`, with a minimum of iOS 13 / macOS
 | `DarwinNetworking` | `HTTPSession` over URLSession |
 | `DarwinFormatting` | Number and date formatting over Foundation's formatters |
 | `DarwinUI` | The SwiftUI player (`SwiftUIRenderer.md`) |
-| `DarwinHostApp` | The app's `main`: the SwiftUI `App` (iOS 14+ / macOS 11+), or a UIKit / AppKit delegate with a hosting controller (iOS 13 / macOS 10.15) |
+| `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
 
 `DarwinWasmHost` is a separate package (iOS 18 / macOS 15) with the WasmKit
@@ -106,21 +109,26 @@ and the registration helpers.
    - The packager already checked all of this, so a failure here means a
      corrupt or tampered app. The host reports it and exits.
 3. **Make the runtime:**
-   - one `HostRuntime`;
-   - a `NativeRuntime` for the native engine, or a `WasmApp` / wasm2c
-     instance;
+   - `NativeRuntime.shared`, for the native and wasm2c engines, which both
+     link a `libapp.a`; or a `WasmApp` over the same `HostRuntime` for
+     WasmKit;
+   - `native.bindDirectly()`, so the host's own proxies and exports bypass
+     the C symbols (§8);
    - `capabilities` set from `RTCapabilities`.
 
    `rt_class` returns `0` for a contract whose capability the manifest
    doesn't declare (§7.3).
 4. **Register the built-ins:**
    - `Clock`, served from a `HostClock` (§6);
-   - `Permissions`, `Bundle` and `Application`;
+   - `Permissions`, `AppBundle` and `Application`, with the generated
+     helpers (`PermissionsProxy.register(DarwinPermissions.self, in: native)`);
    - `List`, `String` and `Bytes`, which `HostRuntime` serves itself.
 5. **Register the contract implementations** for the contracts the app
    uses, from `RTContracts`. Contracts it doesn't use aren't registered, so
    the guest can't resolve them (§14's allowlist).
-6. **Call `rt_main`** inside an `@autoreleasepool`. The guest sets up and
+6. **Call `rt_main`** inside an `@autoreleasepool`, with the library's
+   exports: `native.start(rt_main, dispatch: rt_dispatch, finalize:
+   rt_finalize)`. The guest sets up and
    calls `Renderer.make`; the player creates its root view and installs it
    in the window. `rt_main` returns once the guest's first tree is out
    (`GuestExecutor.whenIdle`).
@@ -151,9 +159,9 @@ behavior. These rules apply across all of them:
     either. The `request…` call is the only prompt.
   - Some frameworks prompt as a side effect, so their implementations
     create the framework object lazily. **Creating a `CBCentralManager`
-    prompts for Bluetooth on iOS 13+.** `DarwinCentral` doesn't create one
-    until `requestAuthorization()`, or until `CBManager.authorization` says
-    access is already decided. Until then, `state()` reports `unknown`.
+    prompts for Bluetooth.** `DarwinCentral` doesn't create one until
+    `requestAuthorization()`, or until `CBManager.authorization` says access
+    is already decided. Until then, `state()` reports `unknown`.
   - `CLLocationManager` and the CoreMotion managers don't prompt on
     creation, so they're created in `make`.
 - **Main thread.** Framework objects are created with the main queue, as
@@ -183,7 +191,7 @@ behavior. These rules apply across all of them:
 | Contract | Framework | Notes |
 |---|---|---|
 | Bluetooth `Central`, `Peripheral`, … | CoreBluetooth | `BluetoothUUID` strings in any of the three forms (16-bit, 32-bit, 128-bit) map to `CBUUID`. `Peripheral.identifier` is `CBPeripheral.identifier`; there is no MAC address. Scan modes map to `CBCentralManagerScanOptionAllowDuplicatesKey` (iOS has no power modes). `ScanMode` is accepted and ignored. Connection timeouts are enforced by the implementation with a main-queue timer, since CoreBluetooth has none. |
-| `LocationManager` | CoreLocation | Accuracy constants map to `kCLLocationAccuracy…`. `requestFullAccuracy` uses `requestTemporaryFullAccuracyAuthorization(withPurposeKey:)` on iOS 14+; on iOS 13, accuracy is always full. |
+| `LocationManager` | CoreLocation | Accuracy constants map to `kCLLocationAccuracy…`. `requestFullAccuracy` uses `requestTemporaryFullAccuracyAuthorization(withPurposeKey:)`. |
 | `MotionManager`, `Pedometer`, `Altimeter`, `ActivityRecognizer` | CoreMotion | Timestamps are converted to host monotonic nanoseconds (`Clock.now`). On macOS, `isAvailable` is false for most sensors. |
 | `NFCReader` | CoreNFC | iOS only; on macOS the contract isn't registered, so `rt_class` returns `0`. An `NFCTagReaderSession` or `NFCNDEFReaderSession` is chosen by the requested tag types. The manifest's declared formats limit which sessions the entitlement allows. |
 | `Device` | UIDevice, ProcessInfo; IOKit / IOPowerSources on macOS | Battery and orientation monitoring are on only while the guest asks for them. `vendorIdentifier` is `identifierForVendor` (`nil` on macOS). |
@@ -197,13 +205,20 @@ behavior. These rules apply across all of them:
   running while the app is suspended and fire late, which matches "after at
   least". Because the host reads system boot time, its privacy manifest has
   to declare it (`ManifestPackager.md` §6).
-- **`Permissions`, `Bundle`, `Application`.** They aren't in AppRuntime
-  yet; `AppRuntimeChanges.md` proposes them.
-  - `Application` reports lifecycle (active, inactive, background), memory
-    warnings and opened URLs. A guest has no other way to learn about these.
-  - `Bundle` serves the app's id, version, preferred languages and
-    localized strings. Its resources are the bundle's `.lproj` folders,
-    copied into the app.
+- **`Permissions`, `Bundle`, `Application`.** AppRuntime declares them in
+  `DynamicRuntime` (`Bundle` is `AppBundle` in Swift, so `DarwinHost` can
+  still write `Bundle` for Foundation's), and `HostRuntime` registers their
+  descriptors. `DarwinHost` registers the implementations:
+  - `Permissions` maps each capability to its framework's authorization
+    (`CBManager.authorization`, `CLLocationManager`, `AVCaptureDevice`,
+    `UNUserNotificationCenter`, …). A capability the manifest doesn't
+    declare is `denied`; one the device lacks is `unavailable`.
+  - `Application` reports lifecycle (active, inactive, background, the
+    raw values of `UIApplication.State`), memory warnings and opened URLs.
+    A guest has no other way to learn about these.
+  - `AppBundle` serves the app's id, version, build, preferred languages
+    and localized strings, from `Bundle.main`. Its resources are the
+    bundle's `.lproj` folders, copied into the app.
 
 ## 7. Threading and re-entrancy
 
@@ -234,13 +249,20 @@ which raises two problems:
    from guest contexts. Both are numbered from 1, and `NativeGuest`
    dispatches every call through the one C `rt_dispatch`.
 
-The fix is in AppRuntime (`AppRuntimeChanges.md` §1). A host build of
-`DynamicRuntime` (a package trait) defines no `rt_*` exports, and talks to
-the runtime core in-process: its calls bind directly to a `HostRuntime`,
-under a separate `Guest` whose `dispatch` calls `Exported.dispatch` in Swift.
-The app's guest keeps the C symbols, and `NativeGuest` calls the slice's
-`rt_dispatch`. One `HostRuntime` then serves two guests, the app and the
-host's own Swift layer, each with its own context numbers.
+AppRuntime solves both (`AppRuntimeChanges.md` §1):
+
+- The host depends on AppRuntime with `traits: []`, which leaves out the
+  `GuestExports` trait, so its `DynamicRuntime` defines no `rt_*` exports.
+- `native.bindDirectly()` binds the host's `DynamicRuntime` to the
+  `HostRuntime` in-process, as `native.host` (a `HostGuest`, whose
+  `dispatch` calls `Exported.dispatch` in Swift).
+- The app keeps the C symbols: `native.start(rt_main, dispatch:
+  rt_dispatch, finalize: rt_finalize)` gives `NativeGuest` the slice's
+  exports.
+
+One `HostRuntime` then serves two guests, the app and the host's own Swift
+layer, each with its own context numbers. AppRuntime's `Packages/LinkedSlice`
+tests exactly this setup.
 
 ## 9. Security
 
@@ -269,13 +291,21 @@ host's own Swift layer, each with its own context numbers.
     sequence, contract resolution and that `rt_main` runs.
   - The same fixtures run as wasm2c output and, on macOS 15, under WasmKit,
     and must give identical traces: the "same test app in both modes" rule
-    (§2.4).
+    (§2.4). AppRuntime's `Packages/LinkedSlice` already runs `ExampleApp`
+    and `ExampleUI` both as slices and through wasm2c.
 - **UI.**
   - XCUITest on the simulator drives `ExampleUI` through the accessibility
     identifiers it puts in the IR.
   - Player unit tests run without a guest (`SwiftUIRenderer.md` §10).
 
 ## 11. Open questions
+
+- **Where `RuntimeWasm` lives.** AppRuntime moved its WasmKit engine to a
+  nested package, `Packages/RuntimeWasm`, to keep WasmKit's minimums out of
+  the root package. SwiftPM can only depend on a repository's root package
+  by URL, so `DarwinWasmHost` can't reach it as it stands: it would have to
+  use a local path (a checkout next to this one), or `RuntimeWasm` would
+  move to a repository of its own.
 
 - **ObjC backend.** Apps that call UIKit directly need a native-binding
   layer (§6, §14), which brings App Review risk and doesn't fit the
@@ -286,4 +316,4 @@ host's own Swift layer, each with its own context numbers.
 - **Multiple windows.** iPad scenes and macOS windows would each need their
   own renderer instance. The `Renderer` contract allows that: a guest can
   call `Renderer.make` once per scene. Telling the guest about scenes needs
-  the `Application` contract.
+  scene events, which the `Application` contract doesn't have yet.
