@@ -75,8 +75,9 @@ struct HostRootView: View {
     @ObservedObject var session: HostSession
 
     var body: some View {
-        if let renderer = session.renderer {
-            RendererView(renderer: renderer)
+        if let scene = session.scene {
+            RendererView(scene: scene)
+                .id(scene.id)
         } else {
             switch session.state {
             case .starting:
