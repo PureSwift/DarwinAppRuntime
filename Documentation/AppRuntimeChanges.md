@@ -1,8 +1,8 @@
 # Changes needed in AppRuntime
 
 **Status:** landed. The Darwin host couldn't be built as designed until
-these were in PureSwift/AppRuntime. Five are merged, and the wasm2c shim
-(§6) is in review. Each one also serves the Android and Linux hosts. Where
+these were in PureSwift/AppRuntime; all six are merged. Each one also serves
+the Android and Linux hosts. Where
 what landed differs from what was proposed, the section says so; AppRuntime's
 `Documentation/Implementation.md` has the details.
 
@@ -13,7 +13,7 @@ what landed differs from what was proposed, the section says so; AppRuntime's
 | 3 | `Permissions`, `Bundle` and `Application` built-ins | PureSwift/AppRuntime#30 |
 | 4 | iOS Simulator slices | PureSwift/AppRuntime#31 |
 | 5 | Manifest stage | PureSwift/AppRuntime#32 |
-| 6 | A shared wasm2c import shim | PureSwift/AppRuntime#33 (in review) |
+| 6 | A shared wasm2c import shim | PureSwift/AppRuntime#33 |
 
 ## 1. Host builds of `DynamicRuntime`
 
@@ -135,7 +135,7 @@ Every host without a native slice translates `App.wasm` to C and needs the
 same import shim. Generating it once, from `rt.h`, saves each host writing
 its own.
 
-**In review:** `Scripts/wasm2c-shim.py`.
+**Landed:** `Scripts/wasm2c-shim.py`.
 
 - `shim` generates the shim from `rt.h`, plus a minimal WASI preview 1.
 - `build` translates `App.wasm`, compiles it with the shim, and seals the
