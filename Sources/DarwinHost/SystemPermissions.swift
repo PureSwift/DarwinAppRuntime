@@ -44,9 +44,9 @@ final class NotificationPermission: PermissionProvider {
     private var last: PermissionStatus = .notDetermined
 
     private var center: UNUserNotificationCenter? {
-        // A process without a bundle (a test runner) has no notification
-        // center.
-        Bundle.main.bundleIdentifier == nil ? nil : .current()
+        // Only an app has a notification center: elsewhere, such as in a
+        // test runner, `current()` raises an exception.
+        Bundle.main.bundleURL.pathExtension == "app" ? .current() : nil
     }
 
     init() {
