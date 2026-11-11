@@ -1,108 +1,147 @@
 # Changes needed in AppRuntime
 
-**Status:** proposed. The Darwin host can't be built as designed until
-these land in PureSwift/AppRuntime. Each one also serves the Android and
-Linux hosts.
+**Status:** landed. The Darwin host couldn't be built as designed until
+these were in PureSwift/AppRuntime; all six are merged. Each one also serves
+the Android and Linux hosts. Where
+what landed differs from what was proposed, the section says so; AppRuntime's
+`Documentation/Implementation.md` has the details.
+
+| | Change | PR |
+|---|---|---|
+| 1 | Host builds of `DynamicRuntime` | PureSwift/AppRuntime#29 |
+| 2 | Platform minimums | PureSwift/AppRuntime#28 |
+| 3 | `Permissions`, `Bundle` and `Application` built-ins | PureSwift/AppRuntime#30 |
+| 4 | iOS Simulator slices | PureSwift/AppRuntime#31 |
+| 5 | Manifest stage | PureSwift/AppRuntime#32 |
+| 6 | A shared wasm2c import shim | PureSwift/AppRuntime#33 |
 
 ## 1. Host builds of `DynamicRuntime`
 
 **Problem.** A host links the app's sealed `libapp.a` together with its own
 Swift code, which uses `DynamicRuntime` for delegate proxies and for
-exporting host objects (`HostRuntime.md` §8). Today:
+exporting host objects (`HostRuntime.md` §8). Before this change:
 
-- `DynamicRuntime` defines the global `rt_dispatch` and `rt_finalize`
+- `DynamicRuntime` defined the global `rt_dispatch` and `rt_finalize`
   (`Exported.swift`), and so does every slice: a duplicate symbol.
-- Host objects are exported through the C `rt_implement` the guest also
-  calls, so `HostRuntime` can't tell host contexts from guest contexts, and
-  both sides number theirs from 1.
-- `NativeGuest` dispatches everything through the C `rt_dispatch`.
+- Host objects were exported through the C `rt_implement` the guest also
+  calls, so `HostRuntime` couldn't tell host contexts from guest contexts,
+  and both sides numbered theirs from 1.
+- `NativeGuest` dispatched everything through the C `rt_dispatch`.
 
-AppRuntime's own tests don't hit this, because the test guest is compiled
-into the same process as the host, with one `DynamicRuntime`.
+**Landed, as proposed:**
 
-**Change.**
-
-1. **A package trait, `GuestExports` (on by default),** controls
+1. **The `GuestExports` package trait** (on by default) controls
    `DynamicRuntime`'s `@c(rt_dispatch)` / `@c(rt_finalize)`. Hosts depend on
-   AppRuntime with the trait off; guests and AppRuntime's own tests keep it.
-2. **A runtime binding.** `DynamicRuntime`'s calls go through
-   `RuntimeBinding`: the C `rt_*` functions by default, or a direct binding
-   to an in-process `HostRuntime`. A host sets the direct binding at start.
-   The host's proxies and exports then never touch the C symbols.
+   AppRuntime with `traits: []`. `guest.py` passes each package's default
+   traits to the compiler, so slices keep their exports.
+2. **`RuntimeBinding`.** `Runtime` and `Exported` call through
+   `Runtime.binding`: `CRuntimeBinding` (the C `rt_*` functions) by
+   default, or `DirectRuntimeBinding` to an in-process `HostRuntime`. A host
+   calls `NativeRuntime.bindDirectly()` at start.
 3. **Two guests in `NativeRuntime`:**
-   - the app, whose `dispatch` calls the slice's `rt_dispatch`, and which
-     the C `rt_*` symbols serve;
-   - the host's Swift layer, whose `dispatch` calls `Exported.dispatch`
-     directly, and which the direct binding serves.
-
-   `HostRuntime` already keys an `Implementation` by its `Guest`, so
-   contexts stay separate.
-4. **A test** that links a sealed slice built by `guest.py` (for example
-   `ExampleApp` for the build machine) into a test executable, next to a
-   host-mode `DynamicRuntime`. It proves the duplicate symbols and the
-   mixed routing are gone.
+   - `guest`, the app: a `NativeGuest` that calls the exports it's given,
+     `native.start(rt_main, dispatch: rt_dispatch, finalize: rt_finalize)`;
+   - `host`, the host's Swift layer: a `HostGuest` whose `dispatch` calls
+     `Exported.dispatch` directly. It isn't limited by the app's
+     capabilities.
+4. **The test**, `Packages/LinkedSlice`, links `ExampleApp`'s sealed macOS
+   slice into a host built with the trait off. With the trait on, SwiftPM's
+   native build system fails the same link with duplicate symbols; Swift
+   Build, the default, lists them but doesn't fail.
 
 ## 2. Platform minimums
 
-**Problem.** `Package.swift` declares macOS 15 / iOS 18, because of
-WasmKit. A host package with lower minimums can't depend on it: SwiftPM
-rejects a dependency whose minimum is higher than the client's. The Darwin
-host targets iOS 13 / macOS 10.15, the same as the slices.
+**Problem.** `Package.swift` declared macOS 15 / iOS 18, because of WasmKit,
+and SwiftPM rejects a dependency whose minimum is higher than its client's.
 
-**Change.**
+**Landed, with two differences:**
 
-1. Lower the package to iOS 13 / macOS 10.15.
-2. Put WasmKit and `RuntimeWasm` behind a package trait (`Wasm`, on by
-   default), or move them to their own package. Hosts that ship only native
-   and wasm2c engines don't depend on WasmKit; the development interpreter
-   (`DarwinWasmHost`) does, at iOS 18 / macOS 15.
-3. Audit the core modules for newer APIs:
-   - `RuntimeCore`, `RuntimeNative`, `DynamicRuntime`, the contract modules,
-     `DynamicUI`, `DynamicObservation`.
-   - Swift Concurrency back-deploys to iOS 13 / macOS 10.15, `TaskLocal`
-     included.
+- **The minimums are iOS 15 / macOS 12**, not iOS 13 / macOS 10.15. Xcode's
+  SDK deprecates `.v13` and `.v10_15`: they're no longer valid deployment
+  targets. The Darwin host targets iOS 15 / macOS 12 too. The slices are
+  still stamped iOS 13 / macOS 10.15, so they load on everything the host
+  supports.
+- **WasmKit moved to its own package**, `Packages/RuntimeWasm` (macOS 15 /
+  iOS 18), which depends on AppRuntime by path. A trait wasn't enough:
+  SwiftPM rejects WasmKit's product at the lower minimum even behind a
+  trait. A nested package can't be a URL dependency, though, so how
+  `DarwinWasmHost` reaches it is still open (`HostRuntime.md` §11).
+
+The shared modules build at the new minimums without changes.
 
 ## 3. Built-in contracts
 
-§7.4 lists `Permissions` and `Bundle` as built-ins, but neither exists.
-The Darwin host also needs a way to tell the guest about the app's
-lifecycle. Add these, like `Clock`: descriptors in `BuiltinContracts` and
-guest-side wrappers in `DynamicRuntime`:
+§7.4 listed `Permissions` and `Bundle` as built-ins, but neither existed,
+and the Darwin host also needs to tell the guest about the app's lifecycle.
 
-| Contract | Methods | Why |
+**Landed**, as `@DynamicRuntime` protocols in `DynamicRuntime`. Their
+descriptors are in `BuiltinContracts`, and `HostRuntime` registers them at
+start, so they resolve before the host registers its implementations. Until
+then, calls fail with `.notFound`, and every method throws `RuntimeError`.
+Contracts in the `org.pureswift.runtime.` namespace get no `rt.contracts`
+record, since every host provides them.
+
+| Contract | Swift | Methods |
 |---|---|---|
-| `Permissions` | `status(capability) -> Int32`, `request(capability, delegate)` | One way to ask for any capability (§7.4). The per-contract `request…` methods stay, for contract-specific options. |
-| `Bundle` | `identifier()`, `version()`, `build()`, `preferredLanguages() -> [String]`, `localizedString(key, table) -> String?` | The guest reads its metadata and strings through the host, never from files (§7.4). |
-| `Application` | `make(delegate)`, `state() -> Int32`; delegate: `didChangeState(state)`, `didReceiveMemoryWarning()`, `open(url) -> Bool` | Foreground, background and memory warnings; deep links. |
+| `Permissions` | `Permissions` | `status(_ capability: Capability) -> Int32` (`PermissionStatus`), `request(_:delegate:)`; delegate: `didRequest(_:status:)` |
+| `Bundle` | `AppBundle` | `identifier()`, `version()`, `build()`, `preferredLanguages() -> [String]`, `localizedString(_:table:) -> String?` |
+| `Application` | `Application` | `make(_ delegate:)`, `state() -> Int32` (`ApplicationState`); delegate: `didChangeState(_:state:)`, `didReceiveMemoryWarning(_:)`, `open(_:url:) -> Bool` |
+
+Differences from the proposal:
+
+- `Bundle` is `AppBundle` in Swift, so a host that imports Foundation can
+  still write `Bundle`.
+- The delegates take their object first, like the provider contracts'
+  delegates.
+- `ApplicationState`'s raw values match `UIApplication.State`.
 
 ## 4. iOS Simulator slices
 
-**Problem.** `ios-arm64` slices are stamped for iOS devices, and the iOS
-Simulator rejects them, so a simulator build always falls back to wasm2c.
+**Problem.** `ios-arm64` slices are stamped for iOS devices, and the
+simulator's linker rejects them, so a simulator build had to fall back to
+wasm2c.
 
-**Change.** `guest.py` adds `ios-simulator`: arm64 and x86_64 in one
-archive, compiled for `arm64-apple-none-macho` / `x86_64-apple-macos`
-like the other Apple slices, and stamped with the simulator platform
-(`PLATFORM_IOSSIMULATOR`, 7) at seal time.
+**Landed:** `guest.py`'s `ios-simulator` target, arm64 and x86_64 in one
+archive, stamped `PLATFORM_IOSSIMULATOR` (7), minimum 13.0. It's part of the
+`ios` group.
+
+- arm64 is compiled for `arm64-apple-none-macho`, like the other Apple slices.
+- x86_64 has no simulator stdlib, so it's compiled for macOS, and
+  `guest.py` rewrites each object's `LC_BUILD_VERSION` before sealing.
+
+The arm64 slice ran in the iOS Simulator. The x86_64 one links, but hasn't
+run: simulators on Apple silicon run arm64.
 
 ## 5. Manifest stage
 
-`ManifestPackager.md` §1:
+`ManifestPackager.md` §1, landed:
 
-- an `AppManifest` library (full Swift, for the build machine);
+- `AppManifest`, a full-Swift library for the build machine with no
+  dependencies;
 - `guest.py bundle --manifest App.swift`, which compiles and runs the
   manifest sandboxed and runs the checks in §1.2;
-- the new `Info.plist` keys (`RTPlatforms`, `RTCapabilityUsage`, `RTIcon`,
-  `RTPlatformExtras`) and `resources/<language>.lproj/Manifest.strings`;
-- the `rt.manifest` section in every slice (§10 lists it, but slices don't
-  have it yet).
+- the `Info.plist` keys `RTPlatforms`, `RTCapabilityUsage`, `RTIcon` and
+  `RTPlatformExtras`, plus `RTCapabilityOptions` and `RTDisplayNameKey`,
+  which the proposal didn't have;
+- `resources/<language>.lproj/Manifest.strings`;
+- the `rt.manifest` section in every slice, and in `App.wasm`.
+
+`ManifestPackager.md` §1.3 lists what the packager still needs from
+`AppManifest`.
 
 ## 6. A shared wasm2c import shim
 
-Every host without a native slice translates `App.wasm` with wasm2c and
-needs the same import shim: guest offsets to pointers for each `rt_*`
-import, plus the guest's allocator exports. `HostRuntime.md` and the
-Android and Linux hosts would otherwise each write it. Generate it once,
-from `rt.h`, in AppRuntime (`Scripts/wasm2c-shim.py`), along with a minimal
-WASI preview 1, and test it against `ExampleApp` and `ExampleUI` the way
-the WasmKit shim is tested.
+Every host without a native slice translates `App.wasm` to C and needs the
+same import shim. Generating it once, from `rt.h`, saves each host writing
+its own.
+
+**Landed:** `Scripts/wasm2c-shim.py`.
+
+- `shim` generates the shim from `rt.h`, plus a minimal WASI preview 1.
+- `build` translates `App.wasm`, compiles it with the shim, and seals the
+  result into a `libapp.a` with the same exports, imports and metadata
+  sections as a native slice.
+
+It targets WABT's wasm2c, not w2c2, whose generated API differs.
+`Packages/LinkedSlice` runs `ExampleApp` and `ExampleUI` both as native
+slices and through it, with the same checks.

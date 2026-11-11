@@ -1,6 +1,8 @@
 # Manifest and packager — Design
 
-**Status:** proposed. Nothing here is implemented yet.
+**Status:** the portable stage (§1) is implemented in AppRuntime
+(PureSwift/AppRuntime#32). `darwin-app` (§2 on) is proposed; nothing of it
+is implemented yet.
 
 Packaging has two stages, in two repositories:
 
@@ -42,19 +44,26 @@ let app = App(
 ```
 
 - **`AppManifest`** is a small, full-Swift library in AppRuntime with the
-  manifest's types. Platform-only settings live in escape hatches:
-  `apple:`, `android:`.
+  manifest's types, with no dependencies, not even Foundation.
+  Platform-only settings live in escape hatches: `apple:` (`category`,
+  `extraInfoPlist`) and `android:` (`extraManifest`).
 - **Reading it.** `guest.py bundle --manifest App.swift` compiles
   `App.swift` with `AppManifest` into a throwaway executable for the build
-  machine, and runs it. A generated `main` encodes `app` as JSON on stdout.
-  This is how SwiftPM evaluates `Package.swift`. It runs sandboxed: on
-  macOS, `sandbox-exec` with no network and no writes outside a temporary
-  directory.
+  machine, and runs it, the way SwiftPM evaluates `Package.swift`. The
+  executable prints `app.manifestJSON()`: JSON with sorted keys. It runs
+  sandboxed: on macOS under `sandbox-exec`, with no network and no writes
+  outside a temporary directory; on Linux under `unshare --user --net`
+  where that's allowed.
 - **Localized strings.** `.localized("key")` refers to
-  `resources/<language>.lproj/Manifest.strings` in the app's resources. The
-  stage fails if a key is missing for any language in `languages`.
-- **The CLI flags** that `guest.py bundle` takes today (`--id`, `--name`,
-  `--capability`, …) stay as a manifest-free path, and as overrides.
+  `resources/<language>.lproj/Manifest.strings` in the app's resources (by
+  default, the `resources` folder next to `App.swift`). The stage fails if
+  a key is missing for any language in `languages`.
+- **The CLI flags** that `guest.py bundle` takes (`--id`, `--name`,
+  `--version`, …) stay as a manifest-free path, and override the manifest's
+  fields. `--capability` with a manifest is an error, since capabilities
+  need usage texts.
+- **Targets.** Without `--target`, the bundle has the slices of the
+  manifest's platforms, plus `App.wasm`.
 
 ### 1.1 What the stage writes
 
@@ -62,17 +71,27 @@ The universal bundle's `Info.plist` gets the portable keys:
 
 - `CFBundleIdentifier`, `CFBundleName`, `CFBundleDisplayName`;
 - `CFBundleShortVersionString`, `CFBundleVersion`;
-- `CFBundleLocalizations`;
-- `RTABIVersion`, `RTTargets`, `RTCapabilities`, `RTContracts` (as today);
-- `RTPlatforms`: the minimum OS per platform;
-- `RTCapabilityUsage`: each capability's usage-string key;
-- `RTIcon`;
+- `CFBundleLocalizations`, `CFBundleDevelopmentRegion` (the first
+  language);
+- `RTABIVersion`, `RTTargets`, `RTCapabilities`, `RTContracts`;
+- `RTPlatforms`: per platform, `Minimum` (Apple) or `MinSDK` and
+  `TargetSDK` (Android);
+- `RTCapabilityUsage`: each capability's usage-text key in
+  `Manifest.strings`;
+- `RTCapabilityOptions`: capability settings, such as location's `access`
+  (`whenInUse` or `always`);
+- `RTDisplayNameKey`: the name's key, when it's localized.
+  `CFBundleDisplayName` holds its value in the first language;
+- `RTIcon`: `icon.png`, when there's an icon;
 - `RTPlatformExtras`: the escape hatches, passed through untouched.
 
-Localized values go to `resources/<language>.lproj/Manifest.strings`, which
-hosts translate into their own string files. The same JSON is embedded in
-the `rt.manifest` section of every slice (§10), so a host can check the
-manifest before linking, even with only a slice in hand.
+Localized values stay in `resources/<language>.lproj/Manifest.strings`,
+which hosts translate into their own string files. A usage text written out
+in the manifest gets the key `RTCapabilityUsage.<capability>`, added to
+every language's file. The same JSON is embedded in the `rt.manifest`
+section of every slice (§10): a Mach-O or ELF section, or a wasm custom
+section. A host can check the manifest before linking, even with only a
+slice in hand.
 
 ### 1.2 Checks (§7.3)
 
@@ -81,9 +100,20 @@ manifest before linking, even with only a slice in hand.
 | A contract in `rt.contracts` requires a capability the manifest doesn't declare | error: iOS kills an app that touches a protected API without its usage string |
 | A declared capability that no contract requires | warning: unused permissions are a common App Review rejection |
 | A usage string missing for a language | error |
-| A platform's minimum OS below its slice's minimum (`ios-arm64`: iOS 13; `macos`: 10.15) | error |
-| `id` not a reverse-DNS identifier; `version` not 1–3 dot-separated integers | error |
+| A platform's minimum OS below its slice's minimum (`ios-arm64` and `ios-simulator`: iOS 13; `macos`: 10.15) | error |
+| `id` not a reverse-DNS identifier; `version` not 1–3 dot-separated integers; `build` not positive | error |
+| An unknown or repeated platform; Android's `targetSDK` below its `minSDK` | error |
 | No icon | warning |
+
+### 1.3 Still to add to `AppManifest`
+
+The packager uses some settings that `AppManifest` doesn't have yet:
+
+- the capabilities `motion`, `nfc` and `localNetwork` (§4.1). Today they
+  can only be declared as `Capability("nfc", usage: …)`, which the stage
+  accepts with a warning;
+- `required:` on a capability (§4.1);
+- `apple.privacy`, the app's data collection and tracking (§6).
 
 ## 2. `darwin-app`
 
@@ -122,26 +152,31 @@ project to package. `xcodeproj` exists for debugging with Xcode's UI.
    | Platform | Native slice | No slice |
    |---|---|---|
    | `ios` (device) | `ios-arm64` | wasm2c |
-   | `ios-simulator` | `ios-simulator` once AppRuntime builds it (`AppRuntimeChanges.md` §4) | wasm2c |
+   | `ios-simulator` | `ios-simulator` (arm64 + x86_64) | wasm2c |
    | `macos` | `macos` (arm64 + x86_64) | wasm2c |
 
    `--engine interpreter` (WasmKit) is accepted only with
    `--configuration debug`, and only for iOS 18+ / macOS 15+, which are
    WasmKit's minimums.
-4. **wasm2c, when there's no slice.**
-   - Translate `App.wasm` to C with w2c2 (MIT, one C file; WABT's wasm2c
-     works too).
-   - Generate the import shim, which turns guest offsets into pointers and
-     calls the `rt_*` functions, plus a minimal WASI preview 1: `fd_write`
-     to `os_log`, `clock_time_get`, `random_get`, `proc_exit`.
-   - Compile both with `clang -O2` for the target. The result exports the
-     same `rt_main` / `rt_dispatch` / `rt_finalize` as a native slice, so
-     the rest of the pipeline is the same.
+4. **wasm2c, when there's no slice.** Run AppRuntime's
+   `Scripts/wasm2c-shim.py build --wasm App.wasm --target … --sdk …`:
+   - it translates `App.wasm` to C with WABT's wasm2c, so packaging needs
+     WABT (`brew install wabt`);
+   - it generates the import shim, which copies between guest memory and
+     the host and calls the `rt_*` functions, plus a minimal WASI preview 1.
+     The packager defines `RT_WASM2C_WRITE` so the guest's stdout and stderr
+     go to `os_log`;
+   - it compiles both with WABT's runtime at `-O2`, and seals them into a
+     `libapp.a` with the same `rt_main` / `rt_dispatch` / `rt_finalize` and
+     metadata sections as a native slice. The rest of the pipeline is the
+     same.
 5. **Link.** `swiftc` links the host runtime, its prebuilt static library
    `DarwinHost.a` (§5), with the slice or wasm2c objects, into the app's
    executable:
-   - `-target arm64-apple-ios13.0` / `-target arm64-apple-macos10.15`
-     (plus x86_64 for a universal macOS executable, merged with `lipo`);
+   - `-target arm64-apple-ios15.0` (`arm64-apple-ios15.0-simulator` and
+     `x86_64-apple-ios15.0-simulator` for the simulator) /
+     `-target arm64-apple-macos12.0` (plus x86_64 for a universal macOS
+     executable, merged with `lipo`), or the manifest's higher minimum;
    - the SDK from `xcrun --show-sdk-path`;
    - `-dead_strip`.
 
@@ -149,16 +184,15 @@ project to package. `xcodeproj` exists for debugging with Xcode's UI.
    undefined, so the link resolves it against the host runtime and
    libSystem. Before linking, the packager checks the slice's undefined
    symbols against the §7.5 set and its `LC_BUILD_VERSION` against the
-   platform. Before iOS 15 / macOS 12, Swift Concurrency comes from
-   back-deployment libraries, which are copied into `Frameworks/` (iOS) or
-   `Contents/Frameworks/` (macOS) with an `@rpath`.
+   platform. Swift Concurrency is in the OS from iOS 15 / macOS 12, so no
+   back-deployment libraries are copied.
 6. **Assemble the app.**
    - iOS: a flat `App.app/`.
    - macOS: `App.app/Contents/{MacOS,Resources}`.
    - Write the translated `Info.plist` (§4), `PkgInfo` and the `.lproj`
      folders (§4.2).
    - Copy the bundle's `resources/`.
-   - Compile the icon (§4.3) and, for iOS 13, the launch screen.
+   - Compile the icon (§4.3).
    - Write the privacy manifest (§6).
 7. **Sign.**
    - The entitlements are generated from the capabilities (§4.1).
@@ -186,7 +220,7 @@ host runtime.
 | languages | `CFBundleLocalizations`, `CFBundleDevelopmentRegion` (the first language) | same |
 | executable | `CFBundleExecutable` | same |
 | minimum OS | `MinimumOSVersion` | `LSMinimumSystemVersion` |
-| — | `CFBundlePackageType` `APPL`, `UIDeviceFamily` [1, 2], `UIApplicationSceneManifest` (one scene), `UILaunchScreen` (iOS 14+) or `UILaunchStoryboardName` (iOS 13), `UIRequiredDeviceCapabilities` (§4.1) | `CFBundlePackageType` `APPL`, `NSPrincipalClass` `NSApplication`, `LSApplicationCategoryType` |
+| — | `CFBundlePackageType` `APPL`, `UIDeviceFamily` [1, 2], `UIApplicationSceneManifest` (one scene), `UILaunchScreen` (§4.3), `UIRequiredDeviceCapabilities` (§4.1) | `CFBundlePackageType` `APPL`, `NSPrincipalClass` `NSApplication`, `LSApplicationCategoryType` (`apple.category`) |
 | icon | `CFBundleIcons` from the asset catalog | `CFBundleIconFile` / `CFBundleIconName` |
 | — | `RT…` keys, copied for the host's start-up checks (`HostRuntime.md` §4) | same |
 | `apple.extraInfoPlist` | merged last; an extra key that conflicts with a generated key is an error | same |
@@ -220,19 +254,17 @@ host runtime.
 ### 4.2 Strings
 
 Each language gets `<language>.lproj/InfoPlist.strings`, holding the display
-name and every usage string, translated from the bundle's `Manifest.strings`.
+name and every usage string, translated from the bundle's `Manifest.strings`
+through `RTDisplayNameKey` and `RTCapabilityUsage`.
 The app's own `Localizable.strings` and other resources are copied as they
 are; the guest reads them through the `Bundle` contract.
 
 ### 4.3 Icon and launch screen
 
 - **Icon.** The manifest's icon is one 1024×1024 PNG. `actool` builds an
-  asset catalog from it, using the single-size app icon format (iOS 12+,
-  macOS 11+; for macOS 10.15 it also renders the sizes `iconutil` needs).
-- **Launch screen.**
-  - iOS 14+: an empty `UILaunchScreen` dictionary (the system background).
-  - iOS 13: a generated storyboard with an empty view controller, compiled
-    with `ibtool`.
+  asset catalog from it, using the single-size app icon format.
+- **Launch screen.** An empty `UILaunchScreen` dictionary (the system
+  background).
 
 ## 5. The host runtime as a prebuilt library
 

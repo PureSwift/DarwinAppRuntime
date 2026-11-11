@@ -2,7 +2,7 @@
 
 **Status:** proposed. Nothing here is implemented yet.
 
-The player (§9.4) for iOS 13+ and macOS 10.15+ is `DarwinUI`. It implements
+The player (§9.4) for iOS 15+ and macOS 12+ is `DarwinUI`. It implements
 AppRuntime's `Renderer` contract (§9.3), turns render IR trees into SwiftUI
 views, and reports what the user does through `RendererDelegate`. The guest
 owns state and identity; the player owns layout, input, animation and
@@ -30,7 +30,8 @@ guest ──apply / replaceSubtree──► SwiftUIRenderer ──► RenderStor
 The guest sends the smallest changed subtrees, and the store keeps SwiftUI's
 invalidation to those subtrees:
 
-- **`NodeModel`** is an `ObservableObject` (iOS 13; Observation needs iOS 17)
+- **`NodeModel`** is an `ObservableObject` (Observation needs iOS 17 /
+  macOS 14)
   with one `@Published var node: RenderNode`, holding the node without its
   children's content. Children are referenced by ID.
 - **`RenderStore`** maps `[RenderNode.ID: NodeModel]`.
@@ -50,28 +51,28 @@ re-evaluating the views whose nodes changed.
 
 ## 3. Nodes
 
-| IR type | SwiftUI | Availability notes |
-|---|---|---|
-| `Text` | `Text(verbatim:)` | — |
-| `Image` | `Image(systemName:)`, `Image(name, bundle: appResources)`; `resizable` → `.resizable()` | SF Symbols in SwiftUI need macOS 11; on 10.15 a symbol draws as nothing (logged once) |
-| `Label` | `Label(title, systemImage:)` | iOS 14 / macOS 11; before that an `HStack` of an image and text |
-| `Spacer` | `Spacer(minLength:)` | — |
-| `Divider` | `Divider()` | — |
-| `Color` | the color (§5) | — |
-| `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing | — |
-| `ScrollView` | `ScrollView(axes, showsIndicators:)` | — |
-| `Button` | `Button(action:) { children }`; the action sends `tap` | — |
-| `Toggle` | `Toggle(isOn:)` over a synced binding (§6) | — |
-| `TextField` | `TextField` / `SecureField`. Submit: `.onSubmit` on iOS 15 / macOS 12, `onCommit:` before | — |
-| `Slider` | `Slider(value:in:step:)` | — |
-| `Stepper` | `Stepper(value:in:step:) { label }` | — |
-| `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` | iOS 14 / macOS 11; before that `UIActivityIndicatorView` / `UIProgressView` (`NSProgressIndicator` on macOS) through a representable |
-| `List` (eager) | `List { rows }` | — |
-| `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) | — |
-| `Section` | `Section(header:footer:)` | — |
-| `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks | iOS 14 / macOS 11; before that `VStack` / `HStack` inside a `ScrollView`, fetching every row |
-| `NavStack`, `NavLevel`, `NavigationLink` | §8 | — |
-| anything else | `EmptyView()`, logged once per type | the vocabulary is add-only |
+| IR type | SwiftUI |
+|---|---|
+| `Text` | `Text(verbatim:)` |
+| `Image` | `Image(systemName:)`, `Image(name, bundle: appResources)`; `resizable` → `.resizable()` |
+| `Label` | `Label(title, systemImage:)` |
+| `Spacer` | `Spacer(minLength:)` |
+| `Divider` | `Divider()` |
+| `Color` | the color (§5) |
+| `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing |
+| `ScrollView` | `ScrollView(axes, showsIndicators:)` |
+| `Button` | `Button(action:) { children }`; the action sends `tap` |
+| `Toggle` | `Toggle(isOn:)` over a synced binding (§6) |
+| `TextField` | `TextField` / `SecureField`; submit through `.onSubmit` |
+| `Slider` | `Slider(value:in:step:)` |
+| `Stepper` | `Stepper(value:in:step:) { label }` |
+| `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` |
+| `List` (eager) | `List { rows }` |
+| `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) |
+| `Section` | `Section(header:footer:)` |
+| `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks |
+| `NavStack`, `NavLevel`, `NavigationLink` | §8 |
+| anything else | `EmptyView()`, logged once per type: the vocabulary is add-only |
 
 ## 4. Modifiers
 
@@ -93,24 +94,24 @@ A node's modifiers fold in order over its view:
 | `offset` | `.offset(x:y:)` |
 | `background` | `.background(color)` |
 | `foregroundColor` | `.foregroundColor(_:)` |
-| `tint` | `.accentColor(_:)` before iOS 15 / macOS 12, then `.tint(_:)` |
+| `tint` | `.tint(_:)` |
 | `opacity`, `cornerRadius`, `shadow` | the same |
 | `border` | `.border(_:width:)` |
-| `font` | `Font` from `style` (`.largeTitle`, …) or `.system(size:weight:design:)`, plus `.italic()`. `largeTitle`, `title2` and `title3` are iOS 14 / macOS 11; before that they map to the nearest style |
+| `font` | `Font` from `style` (`.largeTitle`, …) or `.system(size:weight:design:)`, plus `.italic()` |
 | `fontWeight`, `italic` | `.font` adjustments; `.fontWeight` |
 | `lineLimit`, `multilineTextAlignment` | the same |
 | `disabled` | `.disabled(_:)` |
 | `onTapGesture` | `.onTapGesture(count:)`, sending `tap` |
-| `accessibilityLabel` | `.accessibility(label:)`, or `.accessibilityLabel` on iOS 14 |
-| `accessibilityIdentifier` | `.accessibility(identifier:)`, or `.accessibilityIdentifier` on iOS 14 |
+| `accessibilityLabel` | `.accessibilityLabel(_:)` |
+| `accessibilityIdentifier` | `.accessibilityIdentifier(_:)` |
 
 ## 5. Colors and fonts
 
 - **Named colors** map to the platform's semantic colors, so they follow
   light and dark appearance and accessibility settings:
   `primary` → `Color.primary`, `red` → `Color(UIColor.systemRed)`
-  (`NSColor.systemRed` on macOS), and so on. `mint`, `teal`, `cyan`,
-  `indigo` and `brown` fall back to fixed values where the OS predates them.
+  (`NSColor.systemRed` on macOS), and so on. Every named color in the IR,
+  `mint`, `cyan` and `brown` included, exists on iOS 15 / macOS 12.
 - A **`[name, opacity]`** color applies `.opacity`.
 - A **fixed color** (`0xAARRGGBB`) becomes `Color(.sRGB, red:green:blue:opacity:)`.
 - Font **styles** scale with Dynamic Type. Fixed **sizes** don't, matching
@@ -143,7 +144,7 @@ The result:
 - A guest that rejects input (clamps a slider, filters characters) wins,
   because its value differs from what was last rendered.
 - Text field edits during IME composition (marked text) are sent when
-  composition ends. That needs a `UITextField` representable on iOS 13–16;
+  composition ends. That needs a `UITextField` representable on iOS 15–16;
   later SwiftUI reports composition itself.
 
 ## 7. Lazy containers
@@ -177,11 +178,10 @@ A `NavStack` node's children are its `NavLevel`s, root first.
     The player sends `pop` with the number of levels left, and shows what
     SwiftUI shows until the guest's update arrives. That's during the
     `pop` call itself, so in practice at once.
-- **iOS 13–15 / macOS 10.15–12:** a `NavigationView` with a chain of
+- **iOS 15 / macOS 12:** a `NavigationView` with a chain of
   `NavigationLink(isActive:)`, one per level. Setting a link's `isActive` to
   false is the back navigation that sends `pop`.
-- **Titles:** `navigationTitle` (`navigationBarTitle` on iOS 13) from each
-  level's `title`.
+- **Titles:** `navigationTitle` from each level's `title`.
 - **`NavigationLink` nodes** in a level render as buttons styled like links
   (with a chevron in a `List`) that send `tap`. The guest then adds the
   level, so the player never pushes on its own. One source of truth.
