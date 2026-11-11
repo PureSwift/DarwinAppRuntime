@@ -28,8 +28,21 @@ public final class SwiftUIRenderer: Renderer {
 
     let store: RenderStore
 
+    /// Identifies this renderer's scene in `RendererScenes`.
+    let sceneID = UUID()
+
     init(delegate: any RendererDelegate) {
         self.store = RenderStore(delegate: delegate)
+    }
+
+    deinit {
+        // The guest released it.
+        let id = sceneID
+        if Thread.isMainThread {
+            RendererScenes.shared.remove(id)
+        } else {
+            DispatchQueue.main.async { RendererScenes.shared.remove(id) }
+        }
     }
 
     /// Makes a renderer and adds it to `RendererScenes.shared`.
@@ -57,19 +70,35 @@ public final class SwiftUIRenderer: Renderer {
     }
 }
 
-/// Every live renderer, in the order the guest made them. The host app's
-/// window shows the first one's view; it observes this to learn when the
+/// What a renderer shows: its store, without the renderer itself, so a
+/// window doesn't keep a renderer the guest released.
+public struct RendererScene: Identifiable {
+
+    public let id: UUID
+
+    let store: RenderStore
+}
+
+/// Every live renderer's scene, in the order the guest made them. The host
+/// app's window shows the first one; it observes this to learn when the
 /// guest made it.
+///
+/// Renderers aren't kept alive here: when the guest releases one, its scene
+/// leaves, and so does the guest's delegate once no view shows it.
 public final class RendererScenes: ObservableObject {
 
     public static let shared = RendererScenes()
 
-    @Published public private(set) var renderers: [SwiftUIRenderer] = []
+    @Published public private(set) var scenes: [RendererScene] = []
 
     private init() { }
 
     func add(_ renderer: SwiftUIRenderer) {
-        renderers.append(renderer)
+        scenes.append(RendererScene(id: renderer.sceneID, store: renderer.store))
+    }
+
+    func remove(_ id: UUID) {
+        scenes.removeAll { $0.id == id }
     }
 }
 
@@ -78,6 +107,10 @@ public final class RendererScenes: ObservableObject {
 public struct RendererView: View {
 
     @ObservedObject private var store: RenderStore
+
+    public init(scene: RendererScene) {
+        self.store = scene.store
+    }
 
     public init(renderer: SwiftUIRenderer) {
         self.store = renderer.store
