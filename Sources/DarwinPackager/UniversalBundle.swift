@@ -173,8 +173,8 @@ public struct AppleExtras {
     /// Keys merged into the app's `Info.plist` last.
     public var extraInfoPlist: [String: Any]
 
-    /// The privacy manifest's own keys (`NSPrivacyTracking`, …), until
-    /// `AppManifest` has `apple.privacy` (§1.3, §6).
+    /// The app's privacy manifest keys (`NSPrivacyTracking`, …), from
+    /// `apple.privacy` in `App.swift` (§1.3, §6).
     public var privacy: [String: Any]
 
     public init(_ values: [String: Any]) {
