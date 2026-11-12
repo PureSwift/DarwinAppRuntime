@@ -224,11 +224,25 @@ public struct Packager {
     // MARK: - package
 
     /// Steps 1–8.
-    public func package() throws -> PackageResult {
-        let work = options.resolvedWorkDirectory
-        try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
-        try checkSigningOptions()
+    /// Steps 1–4, shared by `package` and `xcodeProject`: the verified
+    /// bundle and the app's library.
+    struct Prepared {
 
+        var bundle: UniversalBundle
+
+        /// The native slice or the wasm2c library.
+        var library: URL
+
+        var architectures: [String]
+
+        var deploymentTarget: String
+
+        var sdk: SDKInfo
+
+        var diagnostics: [Diagnostic]
+    }
+
+    func prepare(work: URL) throws -> Prepared {
         // 1–3, on a copy, so the bundle can't change after it's verified.
         log.step("Copying \(options.bundle.path) to the work directory \(work.path)")
         let copy = work.appendingPathComponent("bundle")
@@ -275,6 +289,27 @@ public struct Packager {
         case .interpreter:
             throw PackagerError("--engine interpreter isn't implemented yet")
         }
+        return Prepared(
+            bundle: bundle,
+            library: library,
+            architectures: architectures,
+            deploymentTarget: deploymentTarget,
+            sdk: sdk,
+            diagnostics: diagnostics
+        )
+    }
+
+    public func package() throws -> PackageResult {
+        let work = options.resolvedWorkDirectory
+        try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
+        try checkSigningOptions()
+        let prepared = try prepare(work: work)
+        let bundle = prepared.bundle
+        let library = prepared.library
+        let architectures = prepared.architectures
+        let deploymentTarget = prepared.deploymentTarget
+        let sdk = prepared.sdk
+        var diagnostics = prepared.diagnostics
 
         // 5. The executable.
         let linked = try stageLibrary(library, in: work)
@@ -309,6 +344,86 @@ public struct Packager {
             executable: layout.executable(named: bundle.executable),
             diagnostics: diagnostics
         )
+    }
+
+    /// `darwin-app xcodeproj`: steps 1–4 and the app's files, laid out for
+    /// an Xcode project instead of linked (`XcodeProjectWriter`). Returns the
+    /// `.xcodeproj`. By default it goes in `build/xcode/<platform>`.
+    public func xcodeProject(team: String? = nil) throws -> URL {
+        let work = options.resolvedWorkDirectory
+        try fileManager.createDirectory(at: work, withIntermediateDirectories: true)
+        let prepared = try prepare(work: work)
+        let bundle = prepared.bundle
+        let directory = options.output
+            ?? options.currentDirectory.appendingPathComponent("build/xcode/\(platform.rawValue)")
+
+        // The app's files, as `package` lays them out; Xcode writes the
+        // executable and PkgInfo.
+        let staged = AppLayout(app: work.appendingPathComponent("xcode-files"), platform: .iosSimulator)
+        _ = try assemble(bundle, executable: nil, layout: staged, deploymentTarget: prepared.deploymentTarget, sdk: prepared.sdk, work: work)
+        try fileManager.removeItem(at: staged.pkgInfo)
+
+        var entitlements = Entitlements.forCapabilities(bundle, platform: platform, configuration: options.configuration)
+        var signing = [Diagnostic]()
+        if team == nil, platform == .macos {
+            for key in entitlements.keys.sorted() where Entitlements.isRestricted(key) {
+                entitlements[key] = nil
+                signing.append(.warning("left out \(key): an app signed to run locally can't have it; pass --team"))
+            }
+        }
+        if team == nil, platform == .ios {
+            signing.append(.warning("building for a device needs a team: pass --team, or pick one in Xcode"))
+        }
+
+        let resources = try fileManager.contentsOfDirectory(atPath: staged.app.path)
+            .filter { $0 != "Info.plist" }
+            .sorted()
+        let writer = XcodeProjectWriter(
+            name: bundle.executable,
+            bundleIdentifier: bundle.identifier,
+            platform: platform,
+            deploymentTarget: prepared.deploymentTarget,
+            architectures: prepared.architectures,
+            hostPackage: options.hostPackage,
+            directory: directory,
+            resources: resources,
+            hasEntitlements: !entitlements.isEmpty,
+            team: team
+        )
+        log.step("Writing \(writer.project.path)")
+        try removeIfPresent(writer.project)
+        try removeIfPresent(writer.support)
+        let resourcesDirectory = writer.support.appendingPathComponent("Resources")
+        try fileManager.createDirectory(at: resourcesDirectory, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: writer.project, withIntermediateDirectories: true)
+        try HostPackage.mainSwift.write(to: writer.support.appendingPathComponent("main.swift"), atomically: true, encoding: .utf8)
+        try fileManager.copyItem(at: prepared.library, to: writer.support.appendingPathComponent("libapp.a"))
+        // Xcode writes UIDeviceFamily from TARGETED_DEVICE_FAMILY.
+        let infoData = try Data(contentsOf: staged.infoPlist)
+        var info = try PropertyListSerialization.propertyList(from: infoData, format: nil) as? [String: Any] ?? [:]
+        info["UIDeviceFamily"] = nil
+        try info.propertyListData().write(to: writer.support.appendingPathComponent("Info.plist"))
+        try fileManager.removeItem(at: staged.infoPlist)
+        for name in resources {
+            try fileManager.moveItem(at: staged.app.appendingPathComponent(name), to: resourcesDirectory.appendingPathComponent(name))
+        }
+        if !entitlements.isEmpty {
+            try entitlements.propertyListData().write(to: writer.support.appendingPathComponent(writer.entitlementsName))
+        }
+        try writer.pbxproj.write(to: writer.project.appendingPathComponent("project.pbxproj"), atomically: true, encoding: .utf8)
+        try fileManager.createDirectory(at: writer.schemeFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try writer.scheme.write(to: writer.schemeFile, atomically: true, encoding: .utf8)
+        // The host's dependency versions, as the host package build uses.
+        let resolved = options.hostPackage.appendingPathComponent("Package.resolved")
+        if fileManager.fileExists(atPath: resolved.path) {
+            let swiftpm = writer.project.appendingPathComponent("project.xcworkspace/xcshareddata/swiftpm")
+            try fileManager.createDirectory(at: swiftpm, withIntermediateDirectories: true)
+            try fileManager.copyItem(at: resolved, to: swiftpm.appendingPathComponent("Package.resolved"))
+        }
+        try removeIfPresent(staged.app)
+        report(signing)
+        log.step("Done: \(writer.project.path)")
+        return writer.project
     }
 
     func checkSigningOptions() throws {
@@ -402,13 +517,17 @@ public struct Packager {
         "embedded.mobileprovision", "MacOS", "Resources", "Contents",
     ]
 
-    func assemble(_ bundle: UniversalBundle, executable: URL, layout: AppLayout, deploymentTarget: String, sdk: SDKInfo, work: URL) throws -> [Diagnostic] {
+    /// Step 6. Without an `executable`, it lays out everything else, as
+    /// `xcodeProject` does for Xcode to build.
+    func assemble(_ bundle: UniversalBundle, executable: URL?, layout: AppLayout, deploymentTarget: String, sdk: SDKInfo, work: URL) throws -> [Diagnostic] {
         log.step("Assembling \(layout.app.path)")
         var diagnostics = [Diagnostic]()
         try removeIfPresent(layout.app)
         try fileManager.createDirectory(at: layout.executableDirectory, withIntermediateDirectories: true)
         try fileManager.createDirectory(at: layout.resources, withIntermediateDirectories: true)
-        try fileManager.copyItem(at: executable, to: layout.executable(named: bundle.executable))
+        if let executable {
+            try fileManager.copyItem(at: executable, to: layout.executable(named: bundle.executable))
+        }
 
         // Resources, as they are.
         if let resources = bundle.resources {
