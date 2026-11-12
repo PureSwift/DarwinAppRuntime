@@ -117,6 +117,7 @@ import Testing
             "--wasm", work.appendingPathComponent("bundle/wasm32/App.wasm").path,
             "--output", work.appendingPathComponent("wasm2c").path,
             "--target", "\(HostArchitecture.current)-apple-ios15.0-simulator", "--sdk", "iphonesimulator",
+            "--define", "RT_WASM2C_WRITE_FUNCTION=darwin_rt_write",
         ])
         #expect(setup.runner.lines.contains("xcrun nm -u \(work.path)/wasm2c/libapp.a"))
     }
