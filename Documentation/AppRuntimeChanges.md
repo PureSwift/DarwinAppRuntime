@@ -126,8 +126,9 @@ run: simulators on Apple silicon run arm64.
 - `resources/<language>.lproj/Manifest.strings`;
 - the `rt.manifest` section in every slice, and in `App.wasm`.
 
-`ManifestPackager.md` §1.3 lists what the packager still needs from
-`AppManifest`.
+`AppManifest` also has what the packager reads beyond the proposal
+(`ManifestPackager.md` §1.3): `.required()`, `.notifications(remote:)`,
+`.motion`, `.nfc` and `.localNetwork`, and `apple.privacy`.
 
 ## 6. A shared wasm2c import shim
 
@@ -140,7 +141,9 @@ its own.
 - `shim` generates the shim from `rt.h`, plus a minimal WASI preview 1.
 - `build` translates `App.wasm`, compiles it with the shim, and seals the
   result into a `libapp.a` with the same exports, imports and metadata
-  sections as a native slice.
+  sections as a native slice. `--define` passes C macros to the build;
+  `RT_WASM2C_WRITE_FUNCTION=name` sends the guest's stdout and stderr to a
+  host function, which this host uses to log them.
 
 It targets WABT's wasm2c, not w2c2, whose generated API differs.
 `Packages/LinkedSlice` runs `ExampleApp` and `ExampleUI` both as native
