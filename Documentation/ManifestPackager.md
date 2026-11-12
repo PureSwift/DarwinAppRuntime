@@ -131,8 +131,9 @@ writes them:
 - `apple: .init(privacy: […])`, the app's data collection and tracking
   (§6).
 
-No contract requires `motion` or `nfc` yet, so declaring them gets the
-stage's "declared but no contract requires it" warning.
+`Pedometer`, `Altimeter` and `ActivityRecognizer` require `motion`, and the
+NFC `Reader` requires `nfc`. `MotionManager` requires nothing: raw sensor
+data needs no permission.
 
 ## 2. `darwin-app`
 
