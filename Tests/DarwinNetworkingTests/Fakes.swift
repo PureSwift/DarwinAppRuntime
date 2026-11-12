@@ -40,10 +40,25 @@ final class RecordingTaskDelegate: HTTPTaskDelegate {
         error != nil
     }
 
-    /// Returns once `didComplete` has been called.
-    func completion() async {
+    /// Returns once `didComplete` has been called, or records an issue and
+    /// returns after `timeout` seconds.
+    ///
+    /// On the main actor, where URLSession's callbacks and so `didComplete`
+    /// run: off it, `didComplete` could run between the `isComplete` check
+    /// and storing the continuation, which would then never be resumed.
+    @MainActor
+    func completion(timeout: TimeInterval = 10, sourceLocation: SourceLocation = #_sourceLocation) async {
         if isComplete { return }
-        await withCheckedContinuation { continuation = $0 }
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            // Weak: a test checks the delegate is released once the task is.
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) { [weak self] in
+                guard let self, let continuation = self.continuation else { return }
+                self.continuation = nil
+                Issue.record("The task didn't complete within \(timeout) seconds", sourceLocation: sourceLocation)
+                continuation.resume()
+            }
+        }
     }
 
     func willPerformRedirect(_ task: any HTTPTask, response: any HTTPResponse, newRequest: any HTTPRequest) -> Bool {
