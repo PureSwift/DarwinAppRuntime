@@ -111,8 +111,10 @@ public struct SliceInspector {
         "__stack_chk_fail", "__stack_chk_guard",
     ]
 
-    /// What WABT's runtime and the wasm2c shim add.
+    /// What WABT's runtime and the wasm2c shim add, including the host's
+    /// function for the guest's output.
     static let wasm2cAllowed: Set<String> = [
+        Wasm2cBuild.writeFunction,
         "calloc", "realloc", "strlen", "fwrite", "perror", "__stderrp", "__assert_rtn",
         "clock_getres", "mmap", "munmap", "mprotect", "sigsetjmp", "siglongjmp",
         "pthread_mutex_init", "pthread_mutex_lock", "pthread_mutex_unlock", "_tlv_bootstrap",
