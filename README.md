@@ -66,6 +66,7 @@ swift build --product darwin-app
 .build/out/Products/Debug/darwin-app validate App.app --platform ios-simulator
 .build/out/Products/Debug/darwin-app run App.app --platform ios-simulator
 .build/out/Products/Debug/darwin-app package App.app --platform ios --sign "Apple Distribution: …" --profile App.mobileprovision
+.build/out/Products/Debug/darwin-app xcodeproj App.app --platform ios-simulator
 ```
 
 `run` needs a booted simulator. Packaging builds the host for the platform
@@ -73,3 +74,10 @@ in `.build/darwin-app/<platform>` (about 1.3 GB). `--engine wasm2c`
 translates `App.wasm` instead of using a native slice, which needs WABT
 (`brew install wabt`) and AppRuntime's checkout (`APPRUNTIME_PATH` or
 `--appruntime`).
+
+`xcodeproj` writes `build/xcode/<platform>/<Executable>.xcodeproj`, for
+debugging the host and the app in Xcode. Xcode resolves AppRuntime from
+GitHub unless its environment has `APPRUNTIME_PATH`; to use a checkout,
+quit Xcode and open the project with
+`open --env APPRUNTIME_PATH=/path/to/AppRuntime -a Xcode build/xcode/ios-simulator/App.xcodeproj`.
+The first build asks to trust the Bluetooth package's plugin.
