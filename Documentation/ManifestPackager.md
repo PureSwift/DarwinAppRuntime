@@ -16,8 +16,6 @@
 - **The macOS icon** is an icon set rendered with `sips`: `actool` ignores a
   single-size icon on macOS.
 - **NFC on macOS** is always an error, even when optional.
-- **wasm2c output** writes to stdout and stderr rather than `os_log`
-  (`RT_WASM2C_WRITE` isn't defined yet).
 - **`dev`** waits on `DarwinWasmHost` (`HostRuntime.md` §11).
 
 Packaging has two stages, in two repositories:
@@ -121,15 +119,20 @@ slice in hand.
 | An unknown or repeated platform; Android's `targetSDK` below its `minSDK` | error |
 | No icon | warning |
 
-### 1.3 Still to add to `AppManifest`
+### 1.3 Settings beyond the proposal
 
-The packager uses some settings that `AppManifest` doesn't have yet:
+The packager reads some settings the proposal didn't have. `AppManifest`
+writes them:
 
-- the capabilities `motion`, `nfc` and `localNetwork` (§4.1). Today they
-  can only be declared as `Capability("nfc", usage: …)`, which the stage
-  accepts with a warning;
-- `required:` on a capability (§4.1);
-- `apple.privacy`, the app's data collection and tracking (§6).
+- the capabilities `.motion(usage:)`, `.nfc(usage:)` and
+  `.localNetwork(usage:)` (§4.1);
+- `.required()` on a capability (§4.1), the option `required`;
+- `.notifications(remote: true)`, the option `remote`, for `aps-environment`;
+- `apple: .init(privacy: […])`, the app's data collection and tracking
+  (§6).
+
+No contract requires `motion` or `nfc` yet, so declaring them gets the
+stage's "declared but no contract requires it" warning.
 
 ## 2. `darwin-app`
 
@@ -180,8 +183,10 @@ project to package. `xcodeproj` exists for debugging with Xcode's UI.
      WABT (`brew install wabt`);
    - it generates the import shim, which copies between guest memory and
      the host and calls the `rt_*` functions, plus a minimal WASI preview 1.
-     The packager defines `RT_WASM2C_WRITE` so the guest's stdout and stderr
-     go to `os_log`;
+     The packager passes `--define RT_WASM2C_WRITE_FUNCTION=darwin_rt_write`,
+     so the guest's stdout and stderr go to DarwinHost's `darwin_rt_write`,
+     which logs them with `os_log` (category `app`), and echoes them to a
+     terminal, such as `darwin-app run`'s console;
    - it compiles both with WABT's runtime at `-O2`, and seals them into a
      `libapp.a` with the same `rt_main` / `rt_dispatch` / `rt_finalize` and
      metadata sections as a native slice. The rest of the pipeline is the
@@ -256,7 +261,7 @@ host runtime.
 | `notifications` | — | `aps-environment` when remote | `com.apple.developer.aps-environment` |
 
 - **Required or optional.** A capability is optional unless the manifest
-  says `required: true`. A required one adds `UIRequiredDeviceCapabilities`
+  says `.required()`. A required one adds `UIRequiredDeviceCapabilities`
   (`bluetooth-le`, `nfc`, …), so the App Store hides the app from devices
   without the hardware.
 - **Missing hardware.** An optional capability that the device lacks still
