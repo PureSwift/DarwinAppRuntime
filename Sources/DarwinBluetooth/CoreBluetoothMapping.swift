@@ -165,10 +165,11 @@ enum CoreBluetoothMapping {
     /// A CoreBluetooth error as a `BluetoothError` raw value: `0` for `nil`,
     /// `unknown` for anything without a counterpart.
     ///
-    /// ATT errors from the peripheral are `attribute` plus the ATT code,
-    /// except Insufficient Authentication (0x05) and Insufficient Encryption
-    /// (0x0F), which are `insufficientAuthentication`: the system pairs and
-    /// the app retries.
+    /// ATT errors from the peripheral are `attribute` plus the ATT code. That
+    /// includes Insufficient Authentication (0x05) and Insufficient
+    /// Encryption (0x0F): the system pairs, and the app retries.
+    /// `BluetoothError(code:)` turns those two into `insufficientAuthentication`
+    /// for the async API.
     static func errorCode(_ error: Error?) -> Int32 {
         guard let error else { return 0 }
         let nsError = error as NSError
@@ -184,8 +185,6 @@ enum CoreBluetoothMapping {
 
     static func attributeError(_ code: Int) -> Int32 {
         switch code {
-        case CBATTError.insufficientAuthentication.rawValue, CBATTError.insufficientEncryption.rawValue:
-            return BluetoothError.insufficientAuthentication.rawValue
         case 1...0xFF:
             return BluetoothError.attribute.rawValue + Int32(code)
         default:
