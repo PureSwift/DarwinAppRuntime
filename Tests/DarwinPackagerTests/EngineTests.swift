@@ -68,14 +68,16 @@ import Testing
             "/src/AppRuntime/Scripts/wasm2c-shim.py", "build",
             "--wasm", "/work/bundle/wasm32/App.wasm", "--output", "/work/wasm2c",
             "--target", "arm64-apple-ios15.0-simulator", "--sdk", "iphonesimulator",
+            "--define", "RT_WASM2C_WRITE_FUNCTION=darwin_rt_write",
         ]))
         #expect(build.library.path == "/work/wasm2c/libapp.a")
         let macos = Wasm2cBuild(
             appRuntime: build.appRuntime, wasm: build.wasm, output: build.output,
             platform: .macos, architectures: ["arm64", "x86_64"], deploymentTarget: "12.0"
         )
-        #expect(macos.command.arguments.suffix(6) == [
+        #expect(macos.command.arguments.suffix(8) == [
             "--target", "arm64-apple-macos12.0", "--target", "x86_64-apple-macos12.0", "--sdk", "macosx",
+            "--define", "RT_WASM2C_WRITE_FUNCTION=darwin_rt_write",
         ])
     }
 
