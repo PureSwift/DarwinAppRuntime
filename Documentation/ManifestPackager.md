@@ -1,8 +1,8 @@
 # Manifest and packager — Design
 
 **Status:** the portable stage (§1) is implemented in AppRuntime
-(PureSwift/AppRuntime#32), and `darwin-app` (§2 on) here, except `dev` and
-`xcodeproj`. Differences from the design below:
+(PureSwift/AppRuntime#32), and `darwin-app` (§2 on) here, except `dev`.
+Differences from the design below:
 
 - **The host is built per app** from a generated SwiftPM package that links
   `DarwinHostApp` with the app's library, instead of a prebuilt
@@ -17,6 +17,10 @@
   single-size icon on macOS.
 - **NFC on macOS** is always an error, even when optional.
 - **`dev`** waits on `DarwinWasmHost` (`HostRuntime.md` §11).
+- **`xcodeproj`** writes a project for one platform, since the library is
+  for one: `ios-simulator`, `ios` or `macos`. Its app target depends on
+  DarwinAppRuntime as a local package and links `libapp.a`; Xcode builds
+  the host from source, as `package` does.
 
 Packaging has two stages, in two repositories:
 
@@ -151,7 +155,19 @@ darwin-app xcodeproj App.rtapp --platform ios             # an Xcode project for
 
 It uses the Xcode toolchain through `xcrun` (`clang`, `swiftc`, `ld`,
 `actool`, `ibtool`, `codesign`, `notarytool`). It never needs an Xcode
-project to package. `xcodeproj` exists for debugging with Xcode's UI.
+project to package. `xcodeproj` exists for debugging with Xcode's UI:
+
+```
+build/xcode/<platform>/<Executable>.xcodeproj   one app target and a shared scheme
+build/xcode/<platform>/<Executable>/main.swift  the same as the host package's
+build/xcode/<platform>/<Executable>/Info.plist  translated (§4)
+build/xcode/<platform>/<Executable>/libapp.a    the slice, or wasm2c's library
+build/xcode/<platform>/<Executable>/Resources/  strings, privacy manifest, icon, resources/
+```
+
+It runs steps 1–4 and the app's files of step 6 (§3), then leaves building,
+signing and running to Xcode. Without `--team`, the app is signed to run
+locally, which is enough for the simulator and macOS.
 
 ## 3. Pipeline
 
