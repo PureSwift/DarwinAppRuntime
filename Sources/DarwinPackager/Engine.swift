@@ -99,12 +99,17 @@ public struct Wasm2cBuild: Equatable, Sendable {
         output.appendingPathComponent("libapp.a")
     }
 
+    /// The host function the shim sends the guest's stdout and stderr to:
+    /// DarwinHost's, which logs them.
+    public static let writeFunction = "darwin_rt_write"
+
     public var command: Command {
         var arguments = [script.path, "build", "--wasm", wasm.path, "--output", output.path]
         for architecture in architectures {
             arguments += ["--target", platform.triple(architecture: architecture, minimum: deploymentTarget)]
         }
         arguments += ["--sdk", platform.sdk]
+        arguments += ["--define", "RT_WASM2C_WRITE_FUNCTION=\(Self.writeFunction)"]
         return Command("python3", arguments)
     }
 
