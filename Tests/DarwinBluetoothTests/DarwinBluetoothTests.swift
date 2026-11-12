@@ -249,10 +249,14 @@ final class RecordingRegistrar: ContractRegistrar {
         #expect(BluetoothError(code: CoreBluetoothMapping.errorCode(attError(0x0A))) == .attribute)
     }
 
-    @Test func pairingErrorsAreInsufficientAuthentication() {
-        let expected = BluetoothError.insufficientAuthentication.rawValue
-        #expect(CoreBluetoothMapping.errorCode(attError(CBATTError.insufficientAuthentication.rawValue)) == expected)
-        #expect(CoreBluetoothMapping.errorCode(attError(CBATTError.insufficientEncryption.rawValue)) == expected)
+    @Test func pairingErrorsKeepTheirATTCode() {
+        let authentication = CoreBluetoothMapping.errorCode(attError(CBATTError.insufficientAuthentication.rawValue))
+        let encryption = CoreBluetoothMapping.errorCode(attError(CBATTError.insufficientEncryption.rawValue))
+        #expect(authentication == 261)
+        #expect(encryption == 271)
+        // The async API retries after pairing on either.
+        #expect(BluetoothError(code: authentication) == .insufficientAuthentication)
+        #expect(BluetoothError(code: encryption) == .insufficientAuthentication)
     }
 
     @Test func otherDomainsAreUnknown() {
