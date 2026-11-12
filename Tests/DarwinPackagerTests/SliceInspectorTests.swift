@@ -73,7 +73,7 @@ import Testing
     }
 
     @Test func acceptsWasmRuntimeSymbolsFromWasm2cOnly() {
-        let symbols: Set<String> = ["rt_call", "mmap", "pthread_mutex_lock", "__stderrp"]
+        let symbols: Set<String> = ["rt_call", "mmap", "pthread_mutex_lock", "__stderrp", "darwin_rt_write"]
         #expect(SliceInspector.check(report(symbols: symbols), platform: .iosSimulator, architectures: ["arm64"], deploymentTarget: "15.0", engine: .wasm2c) == [])
         #expect(SliceInspector.check(report(symbols: symbols), platform: .iosSimulator, architectures: ["arm64"], deploymentTarget: "15.0", engine: .native).hasErrors)
     }
