@@ -214,12 +214,40 @@ struct XcodeProject: ParsableCommand {
 
     static let configuration = CommandConfiguration(
         commandName: "xcodeproj",
-        abstract: "Writes an Xcode project for debugging the host and guest (not implemented yet)."
+        abstract: "Writes an Xcode project that builds and runs the app, for debugging the host and the guest in Xcode."
     )
 
     @OptionGroup var bundle: BundleOptions
 
+    @Option(help: "The directory for <executable>.xcodeproj and its files. Default: build/xcode/<platform>.")
+    var output: String?
+
+    @Option(help: "Where the bundle's copy and wasm2c output go. Default: .build/darwin-app/<platform>.")
+    var workDirectory: String?
+
+    @Option(help: "DarwinAppRuntime's checkout, which the project depends on. Default: the one darwin-app was built from.")
+    var hostPackage: String?
+
+    @Option(help: "The development team, for a device or restricted entitlements. Without one, the app is signed to run locally.")
+    var team: String?
+
     func run() throws {
-        throw fail(PackagerError("xcodeproj isn't implemented yet: packaging doesn't need Xcode projects, and it waits for the prebuilt DarwinHost.a (ManifestPackager.md §5). Meanwhile, open the host package that `darwin-app package` generates in its work directory (host/Package.swift) in Xcode."))
+        let options = PackageOptions(
+            bundle: bundle.bundleURL,
+            platform: bundle.platform,
+            configuration: .debug,
+            engine: bundle.engine,
+            output: output.map(BuildOptions.url),
+            workDirectory: workDirectory.map(BuildOptions.url),
+            hostPackage: hostPackage.map(BuildOptions.url) ?? HostPackage.defaultHostPackage,
+            appRuntime: bundle.appruntime.map { BuildOptions.url($0).path },
+            allowsMissingContracts: bundle.allowMissingContracts
+        )
+        do {
+            let project = try Packager(options: options).xcodeProject(team: team)
+            print(project.path)
+        } catch {
+            throw fail(error)
+        }
     }
 }
