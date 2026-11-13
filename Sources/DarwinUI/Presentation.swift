@@ -102,7 +102,8 @@ private struct SheetContent: View {
 }
 
 /// An `Alert` node: its first child, presenting an alert with the other
-/// children as buttons while `isPresented`.
+/// children as buttons while `isPresented`, or a confirmation dialog when
+/// its `style` is `dialog`.
 struct AlertView: View {
 
     @ObservedObject var model: NodeModel
@@ -113,8 +114,11 @@ struct AlertView: View {
         let store = self.store
         let props = model.node.props
         let actions = model.childIDs.dropFirst().compactMap { store.model($0) }
-        ChildView(id: model.childIDs.first, store: store)
-            .alert(Text(verbatim: props["title"]?.string ?? ""), isPresented: presentedBinding(model, store)) {
+        let title = Text(verbatim: props["title"]?.string ?? "")
+        let presented = presentedBinding(model, store)
+        let anchor = ChildView(id: model.childIDs.first, store: store)
+        if props["style"]?.string == "dialog" {
+            anchor.confirmationDialog(title, isPresented: presented, titleVisibility: Self.visibility(props["titleVisibility"])) {
                 ForEach(actions) { action in
                     AlertButton(model: action, store: store)
                 }
@@ -123,6 +127,25 @@ struct AlertView: View {
                     Text(verbatim: message)
                 }
             }
+        } else {
+            anchor.alert(title, isPresented: presented) {
+                ForEach(actions) { action in
+                    AlertButton(model: action, store: store)
+                }
+            } message: {
+                if let message = props["message"]?.string {
+                    Text(verbatim: message)
+                }
+            }
+        }
+    }
+
+    static func visibility(_ value: PropValue?) -> Visibility {
+        switch value?.string {
+        case "visible": return .visible
+        case "hidden": return .hidden
+        default: return .automatic
+        }
     }
 }
 
