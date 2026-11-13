@@ -120,7 +120,7 @@ struct AlertView: View {
         if props["style"]?.string == "dialog" {
             anchor.confirmationDialog(title, isPresented: presented, titleVisibility: Self.visibility(props["titleVisibility"])) {
                 ForEach(actions) { action in
-                    AlertButton(model: action, store: store)
+                    ActionButton(model: action, store: store)
                 }
             } message: {
                 if let message = props["message"]?.string {
@@ -130,7 +130,7 @@ struct AlertView: View {
         } else {
             anchor.alert(title, isPresented: presented) {
                 ForEach(actions) { action in
-                    AlertButton(model: action, store: store)
+                    ActionButton(model: action, store: store)
                 }
             } message: {
                 if let message = props["message"]?.string {
@@ -149,8 +149,9 @@ struct AlertView: View {
     }
 }
 
-/// An alert's `Button` node, as a system alert button: its text and role.
-private struct AlertButton: View {
+/// A `Button` node as a system action button, in an alert, dialog or swipe
+/// actions: its text and role.
+struct ActionButton: View {
 
     @ObservedObject var model: NodeModel
 
