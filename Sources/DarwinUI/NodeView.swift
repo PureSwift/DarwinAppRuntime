@@ -69,7 +69,7 @@ struct NodeView: View {
         case "Button":
             let id = node.id
             let store = self.store
-            return AnyView(Button(action: { store.send(id, .tap) }) {
+            return AnyView(Button(role: Styles.buttonRole(props["role"]), action: { store.send(id, .tap) }) {
                 children
             })
 
@@ -92,6 +92,9 @@ struct NodeView: View {
 
         case "ProgressView":
             return AnyView(progress(props))
+
+        case "Picker":
+            return AnyView(PickerView(model: model, store: store))
 
         case "List":
             return AnyView(list(node))
@@ -126,6 +129,45 @@ struct NodeView: View {
             return AnyView(HStack(alignment: alignment, spacing: spacing) {
                 children
             })
+
+        case "LazyVGrid":
+            let columns = Styles.gridItems(props["columns"])
+            let alignment = Styles.horizontal(props["alignment"])
+            let spacing = Styles.length(props["spacing"])
+            if let count = node.count {
+                return AnyView(LazyVGrid(columns: columns, alignment: alignment, spacing: spacing) {
+                    rows(node.id, count: count, revision: props["revision"])
+                })
+            }
+            return AnyView(LazyVGrid(columns: columns, alignment: alignment, spacing: spacing) {
+                children
+            })
+
+        case "LazyHGrid":
+            let rows = Styles.gridItems(props["rows"])
+            let alignment = Styles.vertical(props["alignment"])
+            let spacing = Styles.length(props["spacing"])
+            if let count = node.count {
+                return AnyView(LazyHGrid(rows: rows, alignment: alignment, spacing: spacing) {
+                    self.rows(node.id, count: count, revision: props["revision"])
+                })
+            }
+            return AnyView(LazyHGrid(rows: rows, alignment: alignment, spacing: spacing) {
+                children
+            })
+
+        case "TabView":
+            return AnyView(TabsView(model: model, store: store))
+
+        case "Tab":
+            // Outside a TabView: just its content.
+            return AnyView(ChildView(id: model.childIDs.first, store: store))
+
+        case "Sheet":
+            return AnyView(SheetView(model: model, store: store))
+
+        case "Alert":
+            return AnyView(AlertView(model: model, store: store))
 
         case "NavStack":
             return AnyView(NavStackView(stack: model, store: store))
