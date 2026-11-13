@@ -63,13 +63,16 @@ final class NodeModel: ObservableObject, Identifiable {
     }
 
     /// The prop a control's value is in. A `NavStack`'s value is how many
-    /// levels it shows.
+    /// levels it shows; a `Picker`'s or `TabView`'s the selected index, `-1`
+    /// for none; a `Sheet`'s or `Alert`'s whether it's presented.
     static func controlValue(of node: RenderNode) -> PropValue? {
         switch node.type {
         case "Toggle": return node.props["isOn"]
         case "TextField": return node.props["text"]
         case "Slider", "Stepper": return node.props["value"]
         case "NavStack": return .int(node.children.count)
+        case "Picker", "TabView": return node.props["selection"] ?? .int(-1)
+        case "Sheet", "Alert": return node.props["isPresented"] ?? false
         default: return nil
         }
     }
@@ -365,6 +368,21 @@ final class RenderStore: ObservableObject {
             kind: kind.rawValue,
             payload: payload.map { RenderCodec.encode(payload: $0) } ?? []
         )
+    }
+
+    /// The text a node shows: a `Text`'s, a `Label`'s title, or its first
+    /// descendant's. For labels that must be plain text, such as an alert's
+    /// buttons.
+    func text(of id: RenderNode.ID) -> String? {
+        guard let model = models[id] else { return nil }
+        switch model.node.type {
+        case "Text":
+            return model.node.props["text"]?.string
+        case "Label":
+            return model.node.props["title"]?.string
+        default:
+            return model.childIDs.lazy.compactMap { self.text(of: $0) }.first
+        }
     }
 
     /// The user changed a control: shows the new value and sends `change`.
