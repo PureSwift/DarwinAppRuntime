@@ -122,6 +122,23 @@ struct RenderingTests {
             ]),
             node("Alert", ["title": "Dialog", "isPresented": false, "style": "dialog", "titleVisibility": "visible"], [label("Dialog anchor")]),
             node("ToolbarItem", ["placement": "automatic"], [label("loose item")]),
+            node("Grid", ["horizontal": "leading", "vertical": "top", "horizontalSpacing": 12.0, "verticalSpacing": 4.0], [
+                node("GridRow", [:], [label("A"), label("B")]),
+                node("Divider"),
+                node("GridRow", ["alignment": "bottom"], [label("C")]),
+            ]),
+            node("GridRow", [:], [label("loose cell")]),
+            node("DisclosureGroup", ["isExpanded": true], [label("Details"), label("Shown")]),
+            node("DisclosureGroup", ["isExpanded": false], [label("Closed")]),
+            node("Link", ["url": "https://example.com"], [label("Link")]),
+            node("Link", ["url": "not a url"], [label("Not a link")]),
+            node("List", [:], [
+                node("SwipeActions", ["edge": "trailing", "allowsFullSwipe": true], [
+                    node("SwipeActions", ["edge": "leading", "allowsFullSwipe": false], [label("Row"), node("Button", [:], [label("Pin")])]),
+                    node("Button", ["role": "destructive"], [label("Delete")]),
+                ]),
+            ]),
+            node("Searchable", ["text": "query", "prompt": "Search"], [label("Searched")]),
             node("NavLevel", ["title": "Loose level"], [label("level")]),
             node("SomeFutureView", ["value": 1], [label("never shown")]),
         ]
