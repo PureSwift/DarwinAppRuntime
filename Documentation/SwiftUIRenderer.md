@@ -80,11 +80,14 @@ re-evaluating the views whose nodes changed.
 | `List` (eager) | `List { rows }` |
 | `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) |
 | `Section` | `Section(header:footer:)` |
+| `Form` | `Form { children }` |
+| `Menu` | `Menu { children } label: { Label(title, systemImage:) }` |
 | `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks |
 | `LazyVGrid`, `LazyHGrid` | the lazy grids, over `LazyRow`s or the children. Grid items are made safe for SwiftUI: an adaptive minimum of at least a point, a maximum of at least the minimum |
 | `TabView`, `Tab` | `TabView(selection:)`: each tab's content with `.tabItem` from its title and image, tagged by index (§6). A `Tab` elsewhere shows its content |
 | `Sheet` | its first child with `.sheet` presenting the second (`.fullScreenCover` on iOS). On macOS the content is at least 320 × 240, and Escape dismisses it |
-| `Alert` | its first child with `.alert(title, isPresented:) { buttons } message:`. A button is its text (the first `Text` or `Label` in it) and role |
+| `Alert` | its first child with `.alert(title, isPresented:) { buttons } message:`, or `.confirmationDialog(title, isPresented:, titleVisibility:)` when `style` is `dialog`. A button is its text (the first `Text` or `Label` in it) and role |
+| `ToolbarItem` | its level's toolbar (§8); nothing in content |
 | `NavStack`, `NavLevel`, `NavigationLink` | §8 |
 | anything else | `EmptyView()`, logged once per type: the vocabulary is add-only |
 
@@ -196,6 +199,10 @@ Row subtrees live in the same store, so a row's controls and links work like
 any other node. Events from a row reach the guest's per-row handlers by node
 ID.
 
+Row IDs follow the row's data, so when items move, two rows can hold the same
+IDs until both are refreshed: a refreshed or dropped row doesn't remove the
+models of IDs that another row still has.
+
 ## 8. Navigation
 
 A `NavStack` node's children are its `NavLevel`s, root first.
@@ -216,6 +223,12 @@ A `NavStack` node's children are its `NavLevel`s, root first.
 - **`NavigationLink` nodes** in a level render as buttons styled like links
   (with a chevron in a `List`) that send `tap`. The guest then adds the
   level, so the player never pushes on its own. One source of truth.
+
+**Toolbars.** A level's `ToolbarItem` children are its toolbar, not its
+content. The items at each placement go in one `ToolbarItemGroup`, in a
+`.toolbar` of their own: before iOS 16 and macOS 13, a toolbar builder can't
+leave out an empty group. `bottomBar` is iOS only, and an unknown placement
+is `automatic`.
 
 ## 9. Platforms
 
