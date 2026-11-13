@@ -127,6 +127,28 @@ struct VocabularyTests {
         #expect(renderer.store.text(of: 99) == nil)
     }
 
+    @Test func toolbarPlacements() {
+        #expect(Toolbars.placement("primaryAction").name == "primaryAction")
+        #expect(Toolbars.placement("cancellationAction").name == "cancellationAction")
+        #expect(Toolbars.placement("confirmationAction").name == "confirmationAction")
+        #expect(Toolbars.placement("navigation").name == "navigation")
+        #expect(Toolbars.placement("principal").name == "principal")
+        #expect(Toolbars.placement("someFuturePlacement").name == "automatic")
+        #expect(Toolbars.placement(nil).name == "automatic")
+        #if os(iOS)
+        #expect(Toolbars.placement("bottomBar").name == "bottomBar")
+        #else
+        #expect(Toolbars.placement("bottomBar").name == "automatic", "macOS has no bottom bar")
+        #endif
+    }
+
+    @Test func dialogTitleVisibility() {
+        #expect(AlertView.visibility("visible") == .visible)
+        #expect(AlertView.visibility("hidden") == .hidden)
+        #expect(AlertView.visibility("automatic") == .automatic)
+        #expect(AlertView.visibility(nil) == .automatic)
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
