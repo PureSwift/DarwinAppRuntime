@@ -169,6 +169,49 @@ enum Styles {
         default: return nil
         }
     }
+
+    // MARK: Controls
+
+    static func buttonRole(_ value: PropValue?) -> ButtonRole? {
+        switch value?.string {
+        case "destructive": return .destructive
+        case "cancel": return .cancel
+        default: return nil
+        }
+    }
+
+    // MARK: Grids
+
+    /// A grid's columns or rows. One flexible item when there are none.
+    static func gridItems(_ value: PropValue?) -> [GridItem] {
+        guard case .array(let values) = value else { return [GridItem(.flexible())] }
+        let items = values.compactMap(gridItem)
+        return items.isEmpty ? [GridItem(.flexible())] : items
+    }
+
+    /// `[size, a, b, spacing, horizontal, vertical]` (`RenderIR.md`), or
+    /// `nil` if it isn't one. Lengths are made safe for SwiftUI: an adaptive
+    /// item is at least a point wide, and a maximum is at least its minimum.
+    static func gridItem(_ value: PropValue) -> GridItem? {
+        guard case .array(let parts) = value, parts.count >= 3, let kind = parts[0].string else { return nil }
+        let first = length(parts[1]) ?? 0
+        let maximum = flexibleLength(parts[2]) ?? .infinity
+        let spacing = parts.count > 3 ? length(parts[3]) : nil
+        let alignment = parts.count > 5 ? Self.alignment(["horizontal": parts[4], "vertical": parts[5]]) : nil
+        let size: GridItem.Size
+        switch kind {
+        case "fixed":
+            size = .fixed(first)
+        case "flexible":
+            size = .flexible(minimum: first, maximum: max(first, maximum))
+        case "adaptive":
+            let minimum = max(1, first)
+            size = .adaptive(minimum: minimum, maximum: max(minimum, maximum))
+        default:
+            return nil
+        }
+        return GridItem(size, spacing: spacing, alignment: alignment)
+    }
 }
 
 /// The font the IR's inherited `font`, `fontWeight` and `italic` modifiers
