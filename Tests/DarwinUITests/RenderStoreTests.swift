@@ -203,6 +203,33 @@ struct RenderStoreTests {
         #expect(delegate.rowRequests.map(\.index) == [0, 2, 0])
     }
 
+    /// Rows on screen whose items swap places: each row's refresh finds its
+    /// new item's nodes in the other row, and neither loses them.
+    @Test func rowsThatTradePlacesKeepTheirModels() throws {
+        let (renderer, delegate) = makeRenderer()
+        var order = [0, 1, 2]
+        delegate.rows = { _, index in Self.fruitRow(order[index]) }
+        let store = renderer.store
+        var refreshes: [() -> Void] = []
+        store.schedule = { refreshes.append($0) }
+        renderer.apply(Self.list(revision: 1))
+        for index in 0..<3 {
+            _ = store.row(10, index: index)
+            store.rowAppeared(10, index: index)
+        }
+
+        order = [2, 1, 0]
+        renderer.apply(Self.list(revision: 2))
+        refreshes.forEach { $0() }
+        for index in 0..<3 {
+            let slot = store.row(10, index: index)
+            let root = try #require(slot.rootID)
+            #expect(root == RenderNode.ID(100 + order[index] * 10))
+            #expect(store.model(root) != nil, "row \(index)")
+            #expect(store.model(root + 1)?.node.props["text"] == .string(["Apple", "Banana", "Cherry"][order[index]]))
+        }
+    }
+
     @Test func rowsBeyondANewCountAreDropped() {
         let (renderer, delegate) = makeRenderer()
         delegate.rows = { _, index in Self.fruitRow(index) }
