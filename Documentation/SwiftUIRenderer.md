@@ -70,16 +70,21 @@ re-evaluating the views whose nodes changed.
 | `Color` | the color (§5) |
 | `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing |
 | `ScrollView` | `ScrollView(axes, showsIndicators:)` |
-| `Button` | `Button(action:) { children }`; the action sends `tap` |
+| `Button` | `Button(role:action:) { children }`; the action sends `tap` |
 | `Toggle` | `Toggle(isOn:)` over a synced binding (§6) |
 | `TextField` | `TextField` / `SecureField`; submit through `.onSubmit` |
 | `Slider` | `Slider(value:in:step:)` |
 | `Stepper` | `Stepper(value:in:step:) { label }` |
 | `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` |
+| `Picker` | `Picker(selection:content:label:)` with the options tagged by index (§6), and `.pickerStyle` from `style`; `wheel` only on iOS |
 | `List` (eager) | `List { rows }` |
 | `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) |
 | `Section` | `Section(header:footer:)` |
 | `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks |
+| `LazyVGrid`, `LazyHGrid` | the lazy grids, over `LazyRow`s or the children. Grid items are made safe for SwiftUI: an adaptive minimum of at least a point, a maximum of at least the minimum |
+| `TabView`, `Tab` | `TabView(selection:)`: each tab's content with `.tabItem` from its title and image, tagged by index (§6). A `Tab` elsewhere shows its content |
+| `Sheet` | its first child with `.sheet` presenting the second (`.fullScreenCover` on iOS). On macOS the content is at least 320 × 240, and Escape dismisses it |
+| `Alert` | its first child with `.alert(title, isPresented:) { buttons } message:`. A button is its text (the first `Text` or `Label` in it) and role |
 | `NavStack`, `NavLevel`, `NavigationLink` | §8 |
 | anything else | `EmptyView()`, logged once per type: the vocabulary is add-only |
 
@@ -155,6 +160,18 @@ The result:
 - Text field edits during IME composition (marked text) are sent when
   composition ends. That needs a `UITextField` representable on iOS 15–16;
   later SwiftUI reports composition itself.
+
+**Selection and presentation** use the same sync.
+
+- A `Picker`'s or `TabView`'s value is the selected index, or `-1` when the
+  guest's selection matches no option, which SwiftUI shows as nothing
+  selected. Options and tabs are tagged with their index.
+- A `Sheet`'s or `Alert`'s value is `isPresented`. SwiftUI sets it to
+  `false` when the presentation goes away by itself (a swipe, Escape, an
+  alert's button), which sends `change` with `false`. Only the guest
+  presents.
+- An alert's button sends `tap` first, then SwiftUI dismisses the alert,
+  which sends `change`.
 
 ## 7. Lazy containers
 
