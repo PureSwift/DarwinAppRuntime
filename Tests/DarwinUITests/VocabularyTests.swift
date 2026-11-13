@@ -149,6 +149,26 @@ struct VocabularyTests {
         #expect(AlertView.visibility(nil) == .automatic)
     }
 
+    @Test func disclosureAndSearchAreControlValues() throws {
+        let (renderer, delegate) = makeRenderer()
+        renderer.apply(RenderNode("Searchable", id: 1, props: ["text": "du", "prompt": "Books"], children: [
+            RenderNode("DisclosureGroup", id: 2, props: ["isExpanded": false], children: [text(3, "Details")]),
+        ]))
+        let search = try #require(renderer.model(1))
+        let group = try #require(renderer.model(2))
+        #expect(search.value == .string("du"))
+        #expect(group.value == .bool(false))
+        renderer.store.change(search, to: .string("dun"))
+        renderer.store.change(group, to: .bool(true))
+        renderer.store.send(1, .submit)
+        #expect(delegate.events == [
+            .init(node: 1, kind: .change, payload: .string("dun")),
+            .init(node: 2, kind: .change, payload: .bool(true)),
+            .init(node: 1, kind: .submit, payload: nil),
+        ])
+        #expect(group.value == .bool(true), "shown before the guest answers")
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
