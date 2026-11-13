@@ -64,11 +64,13 @@ final class NodeModel: ObservableObject, Identifiable {
 
     /// The prop a control's value is in. A `NavStack`'s value is how many
     /// levels it shows; a `Picker`'s or `TabView`'s the selected index, `-1`
-    /// for none; a `Sheet`'s or `Alert`'s whether it's presented.
+    /// for none; a `Sheet`'s or `Alert`'s whether it's presented; a
+    /// `DisclosureGroup`'s whether it's expanded; a `Searchable`'s its text.
     static func controlValue(of node: RenderNode) -> PropValue? {
         switch node.type {
         case "Toggle": return node.props["isOn"]
-        case "TextField": return node.props["text"]
+        case "TextField", "Searchable": return node.props["text"]
+        case "DisclosureGroup": return node.props["isExpanded"] ?? false
         case "Slider", "Stepper": return node.props["value"]
         case "NavStack": return .int(node.children.count)
         case "Picker", "TabView": return node.props["selection"] ?? .int(-1)
