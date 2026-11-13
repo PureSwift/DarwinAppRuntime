@@ -114,10 +114,24 @@ struct RenderingTests {
             node("Sheet", ["isPresented": false, "style": "sheet"], [label("Anchor")]),
             node("Sheet", ["isPresented": false, "style": "fullScreenCover"], [label("Cover anchor")]),
             node("Alert", ["title": "Alert", "isPresented": false, "message": "Message"], [label("Alert anchor")]),
+            node("Form", [:], [node("Section", ["header": "Form"], [label("In a form")]), node("Toggle", ["isOn": false], [label("Switch")])]),
+            node("Menu", ["title": "Menu", "systemImage": "ellipsis.circle"], [
+                node("Button", [:], [label("Item")]),
+                node("Divider"),
+                node("Menu", ["title": "Submenu"], [node("Button", ["role": "destructive"], [label("Delete")])]),
+            ]),
+            node("Alert", ["title": "Dialog", "isPresented": false, "style": "dialog", "titleVisibility": "visible"], [label("Dialog anchor")]),
+            node("ToolbarItem", ["placement": "automatic"], [label("loose item")]),
             node("NavLevel", ["title": "Loose level"], [label("level")]),
             node("SomeFutureView", ["value": 1], [label("never shown")]),
         ]
-        let root = node("NavLevel", ["title": "Root"], [node("VStack", ["alignment": "leading", "spacing": 8.0], content)])
+        let toolbar = [
+            node("ToolbarItem", ["placement": "primaryAction"], [node("Button", [:], [label("Add")])]),
+            node("ToolbarItem", ["placement": "automatic"], [node("Button", [:], [label("Edit")]), node("Button", [:], [label("Share")])]),
+            node("ToolbarItem", ["placement": "bottomBar"], [label("Status")]),
+            node("ToolbarItem", ["placement": "someFuturePlacement"], [label("Elsewhere")]),
+        ]
+        let root = node("NavLevel", ["title": "Root"], [node("VStack", ["alignment": "leading", "spacing": 8.0], content)] + toolbar)
         let detail = node("NavLevel", ["title": "Detail"], [label("Detail")])
         return RenderNode("NavStack", id: 1, children: [root, detail])
     }
