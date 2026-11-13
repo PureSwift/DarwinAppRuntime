@@ -81,6 +81,9 @@ re-evaluating the views whose nodes changed.
 | `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) |
 | `Section` | `Section(header:footer:)` |
 | `Form` | `Form { children }` |
+| `Grid`, `GridRow` | `Grid { GridRow { cells } }` on iOS 16 and macOS 13; a `VStack` of `HStack`s before, where cells line up only if they're the same width. A loose `GridRow` is an `HStack` |
+| `DisclosureGroup` | `DisclosureGroup(isExpanded:) { content } label: { label }`, synced like a control (§6) |
+| `SwipeActions` | its first child with `.swipeActions(edge:allowsFullSwipe:)`, the other children as buttons of their text and role |
 | `Menu` | `Menu { children } label: { Label(title, systemImage:) }` |
 | `LazyVStack`, `LazyHStack` | the lazy stacks over `LazyRow`s; eager ones as stacks |
 | `LazyVGrid`, `LazyHGrid` | the lazy grids, over `LazyRow`s or the children. Grid items are made safe for SwiftUI: an adaptive minimum of at least a point, a maximum of at least the minimum |
@@ -89,6 +92,8 @@ re-evaluating the views whose nodes changed.
 | `Alert` | its first child with `.alert(title, isPresented:) { buttons } message:`, or `.confirmationDialog(title, isPresented:, titleVisibility:)` when `style` is `dialog`. A button is its text (the first `Text` or `Label` in it) and role |
 | `ToolbarItem` | its level's toolbar (§8); nothing in content |
 | `NavStack`, `NavLevel`, `NavigationLink` | §8 |
+| `Link` | `Link(destination:) { label }`; the label alone if `url` isn't a URL with a scheme |
+| `Searchable` | its child with `.searchable(text:prompt:)`, synced like a text field, and `.onSubmit(of: .search)` sending `submit` |
 | anything else | `EmptyView()`, logged once per type: the vocabulary is add-only |
 
 ## 4. Modifiers
