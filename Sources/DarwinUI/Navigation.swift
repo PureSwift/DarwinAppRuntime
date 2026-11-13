@@ -48,7 +48,7 @@ struct LevelView: View {
     }
 }
 
-/// A `NavLevel`'s content, with its title.
+/// A `NavLevel`'s content, with its title and toolbar.
 struct LevelContent: View {
 
     @ObservedObject var level: NodeModel
@@ -56,14 +56,74 @@ struct LevelContent: View {
     let store: RenderStore
 
     var body: some View {
+        let children = level.node.children
         let content = VStack(spacing: 8) {
-            ChildrenView(ids: level.childIDs, store: store)
+            ChildrenView(ids: children.filter { $0.type != "ToolbarItem" }.map(\.id), store: store)
         }
+        let items = children.filter { $0.type == "ToolbarItem" }.compactMap { store.model($0.id) }
+        let toolbar = Toolbars.apply(items, to: AnyView(content), store: store)
         if let title = level.node.props["title"]?.string {
-            content.navigationTitle(Text(verbatim: title))
+            toolbar.navigationTitle(Text(verbatim: title))
         } else {
-            content
+            toolbar
         }
+    }
+}
+
+/// A level's `ToolbarItem`s (`SwiftUIRenderer.md` §8).
+enum Toolbars {
+
+    /// The placements, in the order they're applied. `bottomBar` only on
+    /// iOS; an unknown placement is `automatic`.
+    static func placement(_ name: String?) -> (name: String, placement: ToolbarItemPlacement) {
+        switch name {
+        case "primaryAction": return ("primaryAction", .primaryAction)
+        case "cancellationAction": return ("cancellationAction", .cancellationAction)
+        case "confirmationAction": return ("confirmationAction", .confirmationAction)
+        case "navigation": return ("navigation", .navigation)
+        case "principal": return ("principal", .principal)
+        #if os(iOS)
+        case "bottomBar": return ("bottomBar", .bottomBar)
+        #endif
+        default: return ("automatic", .automatic)
+        }
+    }
+
+    /// `view` with one `.toolbar` per placement that has items: toolbar
+    /// builders can't skip an empty group before iOS 16.
+    static func apply(_ items: [NodeModel], to view: AnyView, store: RenderStore) -> AnyView {
+        var groups: [(placement: ToolbarItemPlacement, items: [NodeModel])] = []
+        var names: [String] = []
+        for item in items {
+            let (name, placement) = placement(item.node.props["placement"]?.string)
+            if let index = names.firstIndex(of: name) {
+                groups[index].items.append(item)
+            } else {
+                names.append(name)
+                groups.append((placement, [item]))
+            }
+        }
+        return groups.reduce(view) { view, group in
+            AnyView(view.toolbar {
+                ToolbarItemGroup(placement: group.placement) {
+                    ForEach(group.items) { item in
+                        ToolbarItemContent(item: item, store: store)
+                    }
+                }
+            })
+        }
+    }
+}
+
+/// A `ToolbarItem`'s views.
+private struct ToolbarItemContent: View {
+
+    @ObservedObject var item: NodeModel
+
+    let store: RenderStore
+
+    var body: some View {
+        ChildrenView(ids: item.childIDs, store: store)
     }
 }
 
