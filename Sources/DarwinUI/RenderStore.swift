@@ -339,7 +339,8 @@ final class RenderStore: ObservableObject {
         if let tree {
             upsert(tree, parent: nil, into: &new)
         }
-        for id in slot.ids where !new.contains(id) {
+        // A row that moved to another index is that row's now.
+        for id in slot.ids where !new.contains(id) && !isInAnotherRow(id, than: slot) {
             remove(id)
         }
         slot.ids = new
@@ -357,7 +358,7 @@ final class RenderStore: ObservableObject {
         let visible = visibleRows[list] ?? []
         for (index, slot) in slots where index >= count || !visible.contains(index) {
             rows[list]?[index] = nil
-            for id in slot.ids {
+            for id in slot.ids where !isInAnotherRow(id, than: slot) {
                 remove(id)
             }
         }
@@ -374,6 +375,14 @@ final class RenderStore: ObservableObject {
             for id in slot.ids {
                 remove(id)
             }
+        }
+    }
+
+    /// Whether a fetched row other than `slot` has the node `id`: rows
+    /// whose items moved share IDs until each is refreshed.
+    private func isInAnotherRow(_ id: RenderNode.ID, than slot: RowSlot) -> Bool {
+        rows.values.contains { slots in
+            slots.values.contains { $0 !== slot && $0.ids.contains(id) }
         }
     }
 
