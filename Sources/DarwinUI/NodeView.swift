@@ -99,6 +99,19 @@ struct NodeView: View {
         case "List":
             return AnyView(list(node))
 
+        case "Form":
+            return AnyView(Form {
+                children
+            }
+            .environment(\.renderInList, true))
+
+        case "Menu":
+            return AnyView(MenuView(model: model, store: store))
+
+        case "ToolbarItem":
+            // Shown by its level's toolbar, never in content.
+            return AnyView(EmptyView())
+
         case "Section":
             let header = props["header"]?.string.map { Text(verbatim: $0) }
             let footer = props["footer"]?.string.map { Text(verbatim: $0) }
