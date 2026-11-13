@@ -68,6 +68,50 @@ struct VocabularyTests {
         #expect(delegate.events == [.init(node: 12, kind: .change, payload: .bool(false))])
     }
 
+    /// A sheet's content stays while the sheet slides away, after the guest
+    /// removed it.
+    @Test func heldContentOutlivesItsRemoval() throws {
+        let (renderer, delegate) = makeRenderer()
+        delegate.rows = { list, index in text(list &* 100 &+ RenderNode.ID(index), "Row \(index)") }
+        let content = RenderNode("VStack", id: 20, children: [
+            text(21, "Content"),
+            RenderNode("LazyVStack", id: 22, props: ["revision": 1], count: 2),
+        ])
+        let presented = RenderNode("Sheet", id: 12, props: ["isPresented": true, "style": "sheet"], children: [text(13, "Anchor"), content])
+        let dismissed = RenderNode("Sheet", id: 12, props: ["isPresented": false, "style": "sheet"], children: [text(13, "Anchor")])
+        let store = renderer.store
+        renderer.apply(presented)
+        _ = store.row(22, index: 0)
+        store.rowAppeared(22, index: 0)
+        store.hold(20)
+
+        renderer.apply(dismissed)
+        #expect(store.models[20] == nil, "gone from the tree")
+        #expect(store.model(20)?.childIDs == [21, 22], "but still shown")
+        #expect(store.model(21)?.node.props["text"] == "Content")
+        #expect(store.row(22, index: 0).rootID == 2200, "with its rows")
+        #expect(delegate.rowRequests.count == 1, "not fetched again")
+
+        store.release(20)
+        #expect(store.model(20) == nil)
+        #expect(store.model(21) == nil)
+        #expect(store.model(2200) == nil, "its rows go too")
+
+        // Presented again, then removed without a hold: gone at once.
+        renderer.apply(presented)
+        #expect(store.model(21) != nil)
+        renderer.apply(dismissed)
+        #expect(store.model(21) == nil)
+    }
+
+    @Test func releasingLiveContentKeepsIt() {
+        let (renderer, _) = makeRenderer()
+        renderer.apply(Self.screen)
+        renderer.store.hold(14)
+        renderer.store.release(14)
+        #expect(renderer.store.model(14) != nil, "still in the tree")
+    }
+
     @Test func buttonsShowTheirText() {
         let (renderer, _) = makeRenderer()
         renderer.apply(RenderNode("VStack", id: 1, children: [
