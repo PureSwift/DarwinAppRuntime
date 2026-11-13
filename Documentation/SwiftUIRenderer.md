@@ -172,6 +172,11 @@ The result:
   presents.
 - An alert's button sends `tap` first, then SwiftUI dismisses the alert,
   which sends `change`.
+- The guest removes a sheet's content as soon as the sheet is dismissed,
+  while the sheet is still sliding away. So the store holds the content
+  shown in a sheet: when the guest removes it, its models and lazy rows are
+  kept aside until the sheet's content view disappears, and the sheet slides
+  away with its content instead of blank.
 
 ## 7. Lazy containers
 
