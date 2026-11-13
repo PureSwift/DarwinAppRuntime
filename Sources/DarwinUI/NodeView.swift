@@ -99,6 +99,27 @@ struct NodeView: View {
         case "List":
             return AnyView(list(node))
 
+        case "Grid":
+            return AnyView(GridView(model: model, store: store))
+
+        case "GridRow":
+            // Outside a Grid: its cells in a row.
+            return AnyView(HStack(alignment: Styles.vertical(props["alignment"])) {
+                children
+            })
+
+        case "DisclosureGroup":
+            return AnyView(DisclosureView(model: model, store: store))
+
+        case "Link":
+            return AnyView(LinkNodeView(model: model, store: store))
+
+        case "SwipeActions":
+            return AnyView(SwipeActionsView(model: model, store: store))
+
+        case "Searchable":
+            return AnyView(SearchableView(model: model, store: store))
+
         case "Form":
             return AnyView(Form {
                 children
