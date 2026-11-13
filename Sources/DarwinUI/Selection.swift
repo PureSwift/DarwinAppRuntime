@@ -95,3 +95,25 @@ private struct TabPage: View {
         }
     }
 }
+
+/// A `Menu` node: a menu of its children, labeled with its title and image.
+struct MenuView: View {
+
+    @ObservedObject var model: NodeModel
+
+    let store: RenderStore
+
+    var body: some View {
+        let props = model.node.props
+        Menu {
+            ChildrenView(ids: model.childIDs, store: store)
+        } label: {
+            let title = props["title"]?.string ?? ""
+            if let image = props["systemImage"]?.string {
+                Label(title, systemImage: image)
+            } else {
+                Text(verbatim: title)
+            }
+        }
+    }
+}
