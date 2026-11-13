@@ -116,6 +116,13 @@ final class RenderStore: ObservableObject {
     /// Each node's parent in its tree. A row's root has none.
     private var parents: [RenderNode.ID: RenderNode.ID] = [:]
 
+    /// Roots of subtrees whose models outlive their removal, until
+    /// `release`: a sheet's content, shown while the sheet slides away.
+    private var held: Set<RenderNode.ID> = []
+
+    /// Models of held subtrees the guest removed, by ID.
+    private var retired: [RenderNode.ID: NodeModel] = [:]
+
     /// Fetched rows, by list ID, then index.
     private var rows: [RenderNode.ID: [Int: RowSlot]] = [:]
 
@@ -132,8 +139,29 @@ final class RenderStore: ObservableObject {
         self.delegate = delegate
     }
 
+    /// The model of a node on screen, or of a removed node in a held
+    /// subtree.
     func model(_ id: RenderNode.ID) -> NodeModel? {
-        models[id]
+        models[id] ?? retired[id]
+    }
+
+    /// Keeps the models of the subtree at `id` after the guest removes it,
+    /// until `release(id)`.
+    func hold(_ id: RenderNode.ID) {
+        held.insert(id)
+    }
+
+    /// Lets go of the subtree at `id`, and drops it if the guest removed it.
+    func release(_ id: RenderNode.ID) {
+        held.remove(id)
+        var pending = [id]
+        while let next = pending.popLast() {
+            guard models[next] == nil, let model = retired.removeValue(forKey: next) else { continue }
+            pending.append(contentsOf: model.childIDs)
+            if rows[next] != nil || visibleRows[next] != nil {
+                dropRows(of: next)
+            }
+        }
     }
 
     // MARK: Updates
@@ -144,9 +172,7 @@ final class RenderStore: ObservableObject {
         let old = rootID.map(treeIDs) ?? []
         var new = Set<RenderNode.ID>()
         upsert(tree, parent: nil, into: &new)
-        for id in old where !new.contains(id) {
-            remove(id)
-        }
+        remove(old.filter { !new.contains($0) })
         if rootID != tree.id {
             rootID = tree.id
         }
@@ -165,9 +191,7 @@ final class RenderStore: ObservableObject {
         let old = treeIDs(id)
         var new = Set<RenderNode.ID>()
         upsert(tree, parent: parent, into: &new)
-        for removed in old where !new.contains(removed) {
-            remove(removed)
-        }
+        remove(old.filter { !new.contains($0) })
         if let slot {
             slot.ids.subtract(old)
             slot.ids.formUnion(new)
@@ -225,6 +249,24 @@ final class RenderStore: ObservableObject {
         return ids
     }
 
+    /// Drops the models of `ids`, which the guest removed. Those in a held
+    /// subtree are retired instead, with their rows.
+    private func remove(_ ids: [RenderNode.ID]) {
+        var retiring = Set<RenderNode.ID>()
+        for root in held where ids.contains(root) {
+            retiring.formUnion(treeIDs(root))
+        }
+        for id in ids {
+            if retiring.contains(id), let model = models[id] {
+                retired[id] = model
+                models[id] = nil
+                parents[id] = nil
+            } else {
+                remove(id)
+            }
+        }
+    }
+
     private func remove(_ id: RenderNode.ID) {
         models[id] = nil
         parents[id] = nil
@@ -237,7 +279,7 @@ final class RenderStore: ObservableObject {
 
     /// The list's current revision. Rows fetched at another one are stale.
     private func revision(of list: RenderNode.ID) -> PropValue? {
-        models[list]?.node.props["revision"]
+        model(list)?.node.props["revision"]
     }
 
     /// Row `index` of the lazy container `list`. Fetches it from the guest
@@ -264,7 +306,7 @@ final class RenderStore: ObservableObject {
     }
 
     func rowAppeared(_ list: RenderNode.ID, index: Int) {
-        guard models[list] != nil else { return }
+        guard model(list) != nil else { return }
         visibleRows[list, default: []].insert(index)
     }
 
