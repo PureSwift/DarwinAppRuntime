@@ -64,15 +64,40 @@ struct SheetView: View {
 }
 
 /// A sheet's content: the `Sheet` node's second child.
+///
+/// The guest removes the content as soon as the sheet is dismissed, while
+/// the sheet is still sliding away, so the store holds it until this view
+/// disappears and the sheet shows it to the end.
 private struct SheetContent: View {
 
     @ObservedObject var sheet: NodeModel
 
     let store: RenderStore
 
+    @State private var shown: RenderNode.ID?
+
     var body: some View {
         let children = sheet.childIDs
-        ChildView(id: children.count > 1 ? children[1] : nil, store: store)
+        let current = children.count > 1 ? children[1] : nil
+        ChildView(id: current ?? shown, store: store)
+            .onAppear { show(current) }
+            .onChange(of: current) { show($0) }
+            .onDisappear {
+                if let shown {
+                    store.release(shown)
+                }
+                shown = nil
+            }
+    }
+
+    /// Holds `id`, the content now, and lets go of the content before it.
+    private func show(_ id: RenderNode.ID?) {
+        guard let id, id != shown else { return }
+        if let shown {
+            store.release(shown)
+        }
+        shown = id
+        store.hold(id)
     }
 }
 
