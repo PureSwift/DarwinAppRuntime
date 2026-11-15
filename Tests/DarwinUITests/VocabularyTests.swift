@@ -169,6 +169,54 @@ struct VocabularyTests {
         #expect(group.value == .bool(true), "shown before the guest answers")
     }
 
+    @Test func datePickerComponentsAndRanges() {
+        #expect(DatePickerNodeView.components("date") == .date)
+        #expect(DatePickerNodeView.components("hourAndMinute") == .hourAndMinute)
+        #expect(DatePickerNodeView.components("date,hourAndMinute") == [.date, .hourAndMinute])
+        #expect(DatePickerNodeView.components("someFuture") == [.date, .hourAndMinute])
+        #expect(DatePickerNodeView.components(nil) == [.date, .hourAndMinute])
+
+        let range = DatePickerNodeView.range(["min": 0.0, "max": 60.0])
+        #expect(range?.lowerBound.timeIntervalSince1970 == 0)
+        #expect(range?.upperBound.timeIntervalSince1970 == 60)
+        #expect(DatePickerNodeView.range(["min": 60.0, "max": 0.0]) == nil)
+        #expect(DatePickerNodeView.range(["min": 0.0]) == nil)
+        #expect(DatePickerNodeView.range(["min": 0.0, "max": .double(.infinity)]) == nil)
+    }
+
+    static func refreshable(_ refreshing: Bool) -> RenderNode {
+        RenderNode("Refreshable", id: 1, props: ["refreshing": .bool(refreshing)], children: [
+            RenderNode("List", id: 2, children: [text(3, "Row")]),
+        ])
+    }
+
+    @Test func refreshWaitsForTheGuest() async throws {
+        let (renderer, delegate) = makeRenderer()
+        renderer.apply(Self.refreshable(false))
+        delegate.onEvent = { event in
+            if event.kind == .refresh {
+                renderer.apply(Self.refreshable(true))
+            }
+        }
+        let model = try #require(renderer.model(1))
+        let refresh = Task { await renderer.store.refresh(model) }
+        for _ in 0..<100 where delegate.events.isEmpty {
+            await Task.yield()
+        }
+        #expect(delegate.events == [.init(node: 1, kind: .refresh, payload: nil)])
+        // Still refreshing: the guest's action hasn't finished.
+        renderer.apply(Self.refreshable(false))
+        await refresh.value
+    }
+
+    @Test func refreshEndsAtOnceWhenTheGuestIsDone() async throws {
+        let (renderer, delegate) = makeRenderer()
+        renderer.apply(Self.refreshable(false))
+        let model = try #require(renderer.model(1))
+        await renderer.store.refresh(model)
+        #expect(delegate.events.map(\.kind) == [.refresh])
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
