@@ -159,3 +159,113 @@ struct SearchableView: View {
             .onSubmit(of: .search) { store.send(model.id, .submit) }
     }
 }
+
+/// A `Shape` node: the SwiftUI shape, filled or stroked.
+struct ShapeNodeView: View {
+
+    let props: [String: PropValue]
+
+    var body: some View {
+        switch props["shape"]?.string {
+        case "roundedRectangle":
+            styled(RoundedRectangle(cornerRadius: Styles.number(props["cornerRadius"])))
+        case "circle":
+            styled(Circle())
+        case "ellipse":
+            styled(Ellipse())
+        case "capsule":
+            styled(Capsule())
+        default:
+            styled(Rectangle())
+        }
+    }
+
+    /// `stroke` wins over `fill`; with neither, the foreground color fills it.
+    private func styled<S: Shape>(_ shape: S) -> AnyView {
+        if let stroke = Styles.color(props["stroke"]) {
+            return AnyView(shape.stroke(stroke, lineWidth: Styles.number(props["lineWidth"], 1)))
+        }
+        if let fill = Styles.color(props["fill"]) {
+            return AnyView(shape.fill(fill))
+        }
+        return AnyView(shape)
+    }
+}
+
+/// A `DatePicker` node: seconds since 1970 as a `Date`, synced like a
+/// control.
+struct DatePickerNodeView: View {
+
+    @ObservedObject var model: NodeModel
+
+    let store: RenderStore
+
+    var body: some View {
+        let model = self.model
+        let store = self.store
+        let props = model.node.props
+        let selection = Binding<Date>(
+            get: { Date(timeIntervalSince1970: model.value?.double ?? 0) },
+            set: { store.change(model, to: .double($0.timeIntervalSince1970)) }
+        )
+        let title = props["title"]?.string ?? ""
+        let components = Self.components(props["components"])
+        if let range = Self.range(props) {
+            DatePicker(title, selection: selection, in: range, displayedComponents: components)
+        } else {
+            DatePicker(title, selection: selection, displayedComponents: components)
+        }
+    }
+
+    static func components(_ value: PropValue?) -> DatePickerComponents {
+        var components: DatePickerComponents = []
+        for name in (value?.string ?? "").split(separator: ",") {
+            switch name {
+            case "date": components.insert(.date)
+            case "hourAndMinute": components.insert(.hourAndMinute)
+            default: break
+            }
+        }
+        return components.isEmpty ? [.date, .hourAndMinute] : components
+    }
+
+    /// `min...max`, if both are finite and in order.
+    static func range(_ props: [String: PropValue]) -> ClosedRange<Date>? {
+        guard let lower = props["min"]?.double, let upper = props["max"]?.double,
+              lower.isFinite, upper.isFinite, lower <= upper else { return nil }
+        return Date(timeIntervalSince1970: lower)...Date(timeIntervalSince1970: upper)
+    }
+}
+
+/// A `ContextMenu` node: its first child, with the rest as the menu.
+struct ContextMenuNodeView: View {
+
+    @ObservedObject var model: NodeModel
+
+    let store: RenderStore
+
+    var body: some View {
+        let store = self.store
+        let items = Array(model.childIDs.dropFirst())
+        ChildView(id: model.childIDs.first, store: store)
+            .contextMenu {
+                ChildrenView(ids: items, store: store)
+            }
+    }
+}
+
+/// A `Refreshable` node: its child, refreshed by pulling. The indicator
+/// stays up until the guest says it's done.
+struct RefreshableNodeView: View {
+
+    @ObservedObject var model: NodeModel
+
+    let store: RenderStore
+
+    var body: some View {
+        let model = self.model
+        let store = self.store
+        ChildView(id: model.childIDs.first, store: store)
+            .refreshable { await store.refresh(model) }
+    }
+}
