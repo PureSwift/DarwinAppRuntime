@@ -68,6 +68,7 @@ re-evaluating the views whose nodes changed.
 | `Spacer` | `Spacer(minLength:)` |
 | `Divider` | `Divider()` |
 | `Color` | the color (§5) |
+| `Shape` | `Rectangle`, `RoundedRectangle(cornerRadius:)`, `Circle`, `Ellipse` or `Capsule` (a rectangle for an unknown one), with `.stroke(color, lineWidth:)` or `.fill(color)`, or neither |
 | `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing |
 | `ScrollView` | `ScrollView(axes, showsIndicators:)` |
 | `Button` | `Button(role:action:) { children }`; the action sends `tap` |
@@ -76,11 +77,14 @@ re-evaluating the views whose nodes changed.
 | `Slider` | `Slider(value:in:step:)` |
 | `Stepper` | `Stepper(value:in:step:) { label }` |
 | `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` |
+| `DatePicker` | `DatePicker(title, selection:in:displayedComponents:)` over seconds since 1970, synced like a control (§6). The range only when both bounds are finite and in order |
 | `Picker` | `Picker(selection:content:label:)` with the options tagged by index (§6), and `.pickerStyle` from `style`; `wheel` only on iOS |
 | `List` (eager) | `List { rows }` |
 | `List` (lazy) | `List { ForEach(0..<count) { LazyRow(index) } }` (§7) |
 | `Section` | `Section(header:footer:)` |
 | `Form` | `Form { children }` |
+| `ContextMenu` | its first child with `.contextMenu { items }` |
+| `Refreshable` | its child with `.refreshable`: sends `refresh`, then waits for `refreshing` to be false, through the model's `$node` publisher |
 | `Grid`, `GridRow` | `Grid { GridRow { cells } }` on iOS 16 and macOS 13; a `VStack` of `HStack`s before, where cells line up only if they're the same width. A loose `GridRow` is an `HStack` |
 | `DisclosureGroup` | `DisclosureGroup(isExpanded:) { content } label: { label }`, synced like a control (§6) |
 | `SwipeActions` | its first child with `.swipeActions(edge:allowsFullSwipe:)`, the other children as buttons of their text and role |
