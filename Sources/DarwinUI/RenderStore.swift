@@ -71,7 +71,7 @@ final class NodeModel: ObservableObject, Identifiable {
         case "Toggle": return node.props["isOn"]
         case "TextField", "Searchable": return node.props["text"]
         case "DisclosureGroup": return node.props["isExpanded"] ?? false
-        case "Slider", "Stepper": return node.props["value"]
+        case "Slider", "Stepper", "DatePicker": return node.props["value"]
         case "NavStack": return .int(node.children.count)
         case "Picker", "TabView": return node.props["selection"] ?? .int(-1)
         case "Sheet", "Alert": return node.props["isPresented"] ?? false
@@ -435,6 +435,16 @@ final class RenderStore: ObservableObject {
             return model.node.props["title"]?.string
         default:
             return model.childIDs.lazy.compactMap { self.text(of: $0) }.first
+        }
+    }
+
+    /// The user pulled a `Refreshable` node: sends `refresh`, then waits
+    /// for the guest to say it's done. Its update arrives before the event
+    /// call returns, so `refreshing` may already be false.
+    func refresh(_ model: NodeModel) async {
+        send(model.id, .refresh)
+        for await node in model.$node.values where node.props["refreshing"]?.bool != true {
+            return
         }
     }
 
