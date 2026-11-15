@@ -40,6 +40,9 @@ struct NodeView: View {
         case "Color":
             return AnyView(Styles.color(props["color"]) ?? .clear)
 
+        case "Shape":
+            return AnyView(ShapeNodeView(props: props))
+
         case "VStack":
             return AnyView(VStack(alignment: Styles.horizontal(props["alignment"]), spacing: Styles.length(props["spacing"])) {
                 children
@@ -98,6 +101,15 @@ struct NodeView: View {
 
         case "List":
             return AnyView(list(node))
+
+        case "DatePicker":
+            return AnyView(DatePickerNodeView(model: model, store: store))
+
+        case "ContextMenu":
+            return AnyView(ContextMenuNodeView(model: model, store: store))
+
+        case "Refreshable":
+            return AnyView(RefreshableNodeView(model: model, store: store))
 
         case "Grid":
             return AnyView(GridView(model: model, store: store))
