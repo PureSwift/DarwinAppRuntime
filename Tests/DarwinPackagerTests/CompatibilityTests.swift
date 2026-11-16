@@ -130,6 +130,8 @@ import Testing
         #expect(macos["org.pureswift.ui.Renderer"] != nil)
         #expect(ios["org.pureswift.graphics.Surface"] != nil)
         #expect(macos["org.pureswift.graphics.Surface"] != nil)
+        #expect(ios["org.pureswift.web.WebContent"] != nil)
+        #expect(macos["org.pureswift.web.WebContent"] != nil)
         #expect(macos["org.pureswift.runtime.Bundle"] != nil)
         #expect(ios.count == macos.count + 5)
     }
