@@ -60,6 +60,9 @@ public enum Capabilities {
                 sandboxEntitlements: ["com.apple.security.device.camera"]
             ),
             CapabilityRule(name: "notifications"),
+            // OpenGL ES 2.0: OpenGLES.framework on iOS, desktop OpenGL on
+            // macOS (`DarwinGraphics`).
+            CapabilityRule(name: "graphics", requiredDeviceCapability: "opengles-2"),
         ]
         return Dictionary(uniqueKeysWithValues: rules.map { ($0.name, $0) })
     }()
@@ -91,6 +94,9 @@ public enum Capabilities {
             return []
         }
     }
+
+    /// The graphics APIs this host gives a guest (`RTCapabilityOptions.graphics.api`).
+    public static let graphicsAPIs: Set<String> = ["gles2"]
 
     /// Whether the manifest marks the capability required
     /// (`RTCapabilityOptions.<capability>.required`). Capabilities are

@@ -43,6 +43,9 @@ struct NodeView: View {
         case "Shape":
             return AnyView(ShapeNodeView(props: props))
 
+        case "GLSurface":
+            return GLSurfaceViews.view(props["surface"])
+
         case "VStack":
             return AnyView(VStack(alignment: Styles.horizontal(props["alignment"]), spacing: Styles.length(props["spacing"])) {
                 children

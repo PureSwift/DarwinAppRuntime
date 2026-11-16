@@ -1,6 +1,7 @@
 import DynamicBluetooth
 import DynamicDevice
 import DynamicFormatting
+import DynamicGraphics
 import DynamicLocation
 import DynamicMotion
 import DynamicNFC
@@ -79,6 +80,9 @@ public enum HostContracts {
             ]),
             Module(name: "DarwinUI", descriptors: [
                 RendererProxy.descriptor, RendererDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinGraphics", descriptors: [
+                SurfaceProxy.descriptor, SurfaceDelegateProxy.descriptor,
             ]),
         ]
     }

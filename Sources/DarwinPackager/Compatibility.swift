@@ -81,6 +81,9 @@ public struct Compatibility {
                 continue
             }
             let options = bundle.capabilityOptions[capability] ?? [:]
+            if capability == "graphics", let api = options["api"], !Capabilities.graphicsAPIs.contains(api) {
+                diagnostics.append(.error("graphics API '\(api)' isn't supported by this host, which has \(Capabilities.graphicsAPIs.sorted().joined(separator: ", "))"))
+            }
             let keys = Capabilities.usageKeys(capability, options: options, platform: platform)
             if rule.needsUsage, !keys.isEmpty, bundle.capabilityUsage[capability] == nil {
                 diagnostics.append(.error("capability '\(capability)' has no usage text; the system stops an app that uses it without one"))

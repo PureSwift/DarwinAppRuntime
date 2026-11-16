@@ -217,6 +217,21 @@ struct VocabularyTests {
         #expect(delegate.events.map(\.kind) == [.refresh])
     }
 
+    @Test func glSurfacesComeFromTheProvider() {
+        #expect(GLSurfaceViews.provider == nil, "nothing without DarwinGraphics")
+        var asked: [Int32] = []
+        GLSurfaceViews.provider = { identifier in
+            asked.append(identifier)
+            return AnyView(EmptyView())
+        }
+        defer { GLSurfaceViews.provider = nil }
+        _ = GLSurfaceViews.view(.int(7))
+        _ = GLSurfaceViews.view(nil)
+        _ = GLSurfaceViews.view("7")
+        _ = GLSurfaceViews.view(.int(Int(Int32.max) + 1))
+        #expect(asked == [7])
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)

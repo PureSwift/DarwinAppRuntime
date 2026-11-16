@@ -218,10 +218,12 @@ locally, which is enough for the simulator and macOS.
    - the SDK from `xcrun --show-sdk-path`;
    - `-dead_strip`.
 
-   The guest's sealed object leaves only `rt_*` and a little libc
-   undefined, so the link resolves it against the host runtime and
-   libSystem. Before linking, the packager checks the slice's undefined
-   symbols against the §7.5 set and its `LC_BUILD_VERSION` against the
+   The guest's sealed object leaves only `rt_*`, a little libc and, for an
+   app that draws, OpenGL ES 2.0's functions undefined, so the link
+   resolves it against the host runtime, libSystem and the GL framework
+   (`HostRuntime.md` §5.2). Before linking, the packager checks the slice's
+   undefined symbols against the §7.5 set and the 140 GL functions of
+   AppRuntime's `gles2.py`, and its `LC_BUILD_VERSION` against the
    platform. Swift Concurrency is in the OS from iOS 15 / macOS 12, so no
    back-deployment libraries are copied.
 6. **Assemble the app.**
@@ -276,6 +278,7 @@ host runtime.
 | `localNetwork` | `NSLocalNetworkUsageDescription`, `NSBonjourServices` from extras | — | — |
 | `camera` | `NSCameraUsageDescription` | — | `NSCameraUsageDescription`; sandbox: `com.apple.security.device.camera` |
 | `notifications` | — | `aps-environment` when remote | `com.apple.developer.aps-environment` |
+| `graphics(.gles2)` | `opengles-2` when required | — | — (desktop OpenGL runs GLES 2.0; `HostRuntime.md` §5.2) |
 
 - **Required or optional.** A capability is optional unless the manifest
   says `.required()`. A required one adds `UIRequiredDeviceCapabilities`

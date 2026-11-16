@@ -160,6 +160,22 @@ struct SearchableView: View {
     }
 }
 
+/// What `GLSurface` nodes show (`RenderIR.md`): a surface's GL view, by
+/// its `identifier()`. `DarwinGraphics` provides them when the app uses
+/// `Surface`; without it, a `GLSurface` shows nothing.
+public enum GLSurfaceViews {
+
+    /// Makes the view of the surface with an identifier.
+    public static var provider: ((Int32) -> AnyView)?
+
+    static func view(_ surface: PropValue?) -> AnyView {
+        guard let provider, let value = surface?.int, let identifier = Int32(exactly: value) else {
+            return AnyView(EmptyView())
+        }
+        return provider(identifier)
+    }
+}
+
 /// A `Shape` node: the SwiftUI shape, filled or stroked.
 struct ShapeNodeView: View {
 
