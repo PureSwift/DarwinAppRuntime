@@ -42,6 +42,7 @@ let package = Package(
         .library(name: "DarwinNetworking", targets: ["DarwinNetworking"]),
         .library(name: "DarwinFormatting", targets: ["DarwinFormatting"]),
         .library(name: "DarwinUI", targets: ["DarwinUI"]),
+        .library(name: "DarwinGraphics", targets: ["DarwinGraphics"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -109,13 +110,36 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Graphics
+
+        // The gl* functions an app's executable defines over the system's,
+        // and the host's own GL calls (`darwin_gl.h`).
+        .target(
+            name: "CDarwinGL",
+            cSettings: [
+                .define("GL_SILENCE_DEPRECATION"),
+                .define("GLES_SILENCE_DEPRECATION"),
+            ],
+            linkerSettings: [
+                .linkedFramework("OpenGLES", .when(platforms: [.iOS])),
+                .linkedFramework("OpenGL", .when(platforms: [.macOS])),
+            ]
+        ),
+        .target(
+            name: "DarwinGraphics",
+            dependencies: ["DarwinHost", "DarwinUI", "CDarwinGL", runtime("DynamicGraphics")],
+            swiftSettings: host,
+            linkerSettings: [.linkedFramework("QuartzCore")]
+        ),
+
         // MARK: - App
 
         .target(
             name: "DarwinHostApp",
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
-                "DarwinDevice", "DarwinNetworking", "DarwinFormatting", "DarwinUI", runtime("CRuntime"),
+                "DarwinDevice", "DarwinNetworking", "DarwinFormatting", "DarwinUI", "DarwinGraphics",
+                runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -131,6 +155,7 @@ let package = Package(
                 runtime("RuntimeNative"), runtime("DynamicRuntime"), runtime("DynamicBluetooth"), runtime("DynamicLocation"),
                 runtime("DynamicMotion"), runtime("DynamicNFC"), runtime("DynamicDevice"),
                 runtime("DynamicNetworking"), runtime("DynamicFormatting"), runtime("DynamicUI"),
+                runtime("DynamicGraphics"),
             ]
         ),
         .executableTarget(
@@ -152,6 +177,7 @@ let package = Package(
         .testTarget(name: "DarwinNetworkingTests", dependencies: ["DarwinNetworking"], swiftSettings: host),
         .testTarget(name: "DarwinFormattingTests", dependencies: ["DarwinFormatting"], swiftSettings: host),
         .testTarget(name: "DarwinUITests", dependencies: ["DarwinUI"], swiftSettings: host),
+        .testTarget(name: "DarwinGraphicsTests", dependencies: ["DarwinGraphics"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]
