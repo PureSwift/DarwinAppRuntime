@@ -68,6 +68,7 @@ re-evaluating the views whose nodes changed.
 | `Spacer` | `Spacer(minLength:)` |
 | `Divider` | `Divider()` |
 | `Color` | the color (§5) |
+| `GLSurface` | The GL view of the surface whose `identifier()` is its `surface` prop, from `GLSurfaceViews.provider` (`DarwinGraphics`, `HostRuntime.md` §5.2); nothing without one, or once the guest released the surface |
 | `Shape` | `Rectangle`, `RoundedRectangle(cornerRadius:)`, `Circle`, `Ellipse` or `Capsule` (a rectangle for an unknown one), with `.stroke(color, lineWidth:)` or `.fill(color)`, or neither |
 | `VStack`, `HStack`, `ZStack` | the same, with the IR's alignment and spacing |
 | `ScrollView` | `ScrollView(axes, showsIndicators:)` |
