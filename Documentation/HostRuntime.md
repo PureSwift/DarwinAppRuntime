@@ -98,6 +98,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinFormatting` | Number and date formatting over Foundation's formatters |
 | `DarwinUI` | The SwiftUI player (`SwiftUIRenderer.md`) |
 | `DarwinGraphics` | `Surface` over EAGL (iOS) and desktop OpenGL (macOS), and the `GLSurface` views (§5.2) |
+| `DarwinWebKit` | `WebContent` over `WKWebView`, and the `WebView` views (§5.3) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -213,6 +214,7 @@ behavior. These rules apply across all of them:
 | `HTTPSession` | URLSession | One `URLSession` per contract session, whose delegate dispatches to the task delegates. Redirects and challenges ask the guest synchronously, on the main thread. |
 | Formatting | Foundation | Cached formatters per locale and style. |
 | `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
+| `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
 
@@ -268,6 +270,49 @@ OpenGLES.framework on iOS and OpenGL.framework on macOS.
   - `rt_gl_context_generation`, which the wasm2c shim asks, is the current
     context's own number, so switching between two surfaces counts as a
     new context.
+
+### 5.3 Web views
+
+`DarwinWebKit` implements `WebContent` over `WKWebView` (AppRuntime's
+`Documentation/Contracts/WebKit.md`).
+
+- **The page.** `make` creates the `WKWebView`, off screen, and keeps the
+  delegate. When a `WebView` node with the page's `identifier()` appears,
+  `DarwinUI` asks `WebViews.provider`, which `DarwinWebKit` sets when it's
+  registered, for a view; the page's web view moves into it. When the node
+  goes, the web view leaves and the page keeps loading, with its history
+  and scroll position. A second node showing the page takes the web view.
+  Releasing the `WebContent` stops and removes it.
+- **The delegate.** Key-value observing reports `url`, `title`,
+  `canGoBack` and `canGoForward` when they change, and `estimatedProgress`
+  while loading. `didFinish` reports `didChangeLoading(false, 1)`, then
+  `didFinishNavigation`; `didFail` and `didFailProvisionalNavigation`
+  report `didFailNavigation`, then the loading state. A load that ends
+  otherwise (stopped, refused, or replaced by another) reports only the
+  loading state. The title can come just after `didFinishNavigation`.
+- **Navigations.** `decidePolicyFor` asks `shouldNavigate` and answers with
+  the guest's reply. The navigation the guest just started (`load`,
+  `loadHTML`, `loadResource`, `reload`, `goBack`, `goForward`) isn't asked
+  about. New windows load in the same page. If the web content process
+  ends, the page reloads.
+- **Without `network`:** `load` of an `http`, `https`, `ws` or `wss` URL
+  fails at once with `notPermitted`, as does a page's navigation to one,
+  without asking. A content rule list blocks remote subresources. It's
+  compiled once; until it's ready, a page's loads wait.
+- **`load`** refuses `file:` URLs (`badURL`): files come from
+  `loadResource`, which resolves the path in the app's resources, refuses
+  one that leaves them, and lets the page read the file's directory.
+- **Scripts.** `evaluateJavaScript`'s value becomes JSON text with
+  `JSONSerialization` (fragments allowed, keys sorted, dates as ISO 8601
+  strings, as `JSON.stringify` writes them). `undefined` and functions are
+  `nil`; an exception's message is the error.
+- **Errors.** `NSURLErrorDomain` codes map to `network`, `timedOut`,
+  `security` (certificates and App Transport Security) and `badURL`, and
+  WebKit's "can't show URL" to `badURL`. A cancelled navigation, or one a
+  policy refused, isn't a failure.
+- **Dialogs.** `alert`, `confirm` and `prompt` show a `UIAlertController`
+  (iOS) or a sheet (macOS); a page that isn't on screen gets the answer of
+  a dismissed dialog. Camera and microphone requests are denied.
 
 ## 6. Built-in contracts
 
