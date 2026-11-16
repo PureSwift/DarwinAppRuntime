@@ -97,6 +97,8 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinNetworking` | `HTTPSession` over URLSession |
 | `DarwinFormatting` | Number and date formatting over Foundation's formatters |
 | `DarwinUI` | The SwiftUI player (`SwiftUIRenderer.md`) |
+| `DarwinGraphics` | `Surface` over EAGL (iOS) and desktop OpenGL (macOS), and the `GLSurface` views (§5.2) |
+| `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
 
@@ -210,6 +212,62 @@ behavior. These rules apply across all of them:
 | `Device` | UIDevice, ProcessInfo; IOKit / IOPowerSources on macOS | Battery and orientation monitoring are on only while the guest asks for them. `vendorIdentifier` is `identifierForVendor` (`nil` on macOS). |
 | `HTTPSession` | URLSession | One `URLSession` per contract session, whose delegate dispatches to the task delegates. Redirects and challenges ask the guest synchronously, on the main thread. |
 | Formatting | Foundation | Cached formatters per locale and style. |
+| `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
+
+### 5.2 Graphics
+
+`DarwinGraphics` implements `Surface` (AppRuntime's
+`Documentation/Contracts/Graphics.md`, `DynamicRuntime.md` §8). The guest
+calls OpenGL ES 2.0 itself: a native slice and wasm2c output both reference
+the `gl*` symbols, and the app's executable links them, to
+OpenGLES.framework on iOS and OpenGL.framework on macOS.
+
+- **The surface.** `make` keeps the delegate and creates nothing. When a
+  `GLSurface` node with the surface's `identifier()` appears, `DarwinUI`
+  asks `GLSurfaceViews.provider`, which `DarwinGraphics` sets when it's
+  registered, for the view. The first view makes the GL context, which then
+  lives as long as the surface, so the guest's GL objects survive the view
+  leaving and coming back. A second view showing the same surface takes it
+  over.
+- **iOS.** A `CAEAGLLayer` drawn by an `EAGLContext` through a framebuffer
+  object with a 24-bit depth and 8-bit stencil buffer, at the screen's
+  scale. A `CADisplayLink` drives frames.
+- **macOS.** An `NSOpenGLView` on a legacy-profile context: desktop
+  OpenGL 2.1, which has every GLES 2.0 function. Point sprites are on, as in
+  GLES. A display link drives frames (a 60 Hz timer before macOS 14).
+- **Frames** run while the view is in a window and the app is active.
+  `resize` comes before the first frame of a new size, in pixels, with the
+  scale. Each frame makes the context current, calls `frame`, presents and
+  restores the context. Timestamps are `mach_continuous_time`, as
+  `Clock.now()`. Contexts are never lost on these platforms, so
+  `contextLost` isn't sent.
+- **Input** (§8.6). Positions are pixels from the top left.
+  - iOS: touches (IDs from 1), the pencil (`pen`), an iPad's pointer
+    (`mouse`, ID 0, with its buttons and hovering), trackpad and wheel
+    scrolling, and a hardware keyboard: `UIKey.keyCode` is a HID usage
+    already. UIKit doesn't repeat presses. There's no pointer capture.
+  - macOS: the mouse (ID 0; a second button is a `move` with the new
+    buttons), the scroll wheel (lines are 16 points), and keys, mapped from
+    `kVK_…` codes to HID usages; modifier keys come from `flagsChanged`.
+    `setPointerCaptured` hides the cursor and holds it still, and mouse
+    movement becomes `pointerDelta`.
+  - Moves wait for the next frame, one per pointer, and captured movement
+    is summed. Other events go at once, after their pointer's waiting move.
+  - The view takes keyboard focus when it appears and when touched or
+    clicked. Focus goes with the first responder, the key window on macOS,
+    the app being active and the view being on screen. Before it goes,
+    every pointer in contact gets `cancel`, and capture ends.
+- **GLES 2.0 differences** are covered in `CDarwinGL`, by defining the
+  `gl*` function in the executable, which wins over the framework's:
+  - **Framebuffer 0** is the surface's: iOS has no default framebuffer,
+    and AppKit may draw a layer-backed view into a framebuffer object.
+    `glBindFramebuffer(_, 0)` binds the surface's during a frame.
+  - **GLSL ES on macOS.** GLSL 1.20 rejects precision statements and
+    `#version 100`, so `glShaderSource` blanks them and the `lowp`,
+    `mediump` and `highp` qualifiers first. Line numbers stay the same.
+  - `rt_gl_context_generation`, which the wasm2c shim asks, is the current
+    context's own number, so switching between two surfaces counts as a
+    new context.
 
 ## 6. Built-in contracts
 
