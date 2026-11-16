@@ -8,6 +8,7 @@ import DarwinMotion
 import DarwinNetworking
 import DarwinNFC
 import DarwinUI
+import DarwinWebKit
 import Foundation
 
 /// The app's `main`. The packager generates it:
@@ -32,6 +33,7 @@ public enum HostApp {
             DarwinFormatting.self,
             DarwinUI.self,
             DarwinGraphics.self,
+            DarwinWebKit.self,
         ]
     }
 
