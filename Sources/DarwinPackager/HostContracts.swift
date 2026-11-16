@@ -1,5 +1,6 @@
 import DynamicBluetooth
 import DynamicDevice
+import DynamicFiles
 import DynamicFormatting
 import DynamicGraphics
 import DynamicLocation
@@ -87,6 +88,9 @@ public enum HostContracts {
             ]),
             Module(name: "DarwinGraphics", descriptors: [
                 SurfaceProxy.descriptor, SurfaceDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinFiles", descriptors: [
+                FilesProxy.descriptor, FileCallbackProxy.descriptor,
             ]),
         ]
     }
