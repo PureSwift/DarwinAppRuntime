@@ -83,7 +83,7 @@ public struct SliceInspector {
         }
         let disallowed = report.undefinedSymbols.filter { !isAllowed($0, engine: engine) }.sorted()
         if !disallowed.isEmpty {
-            diagnostics.append(.error("the library leaves symbols undefined that only rt_* and libc may: \(disallowed.joined(separator: ", "))"))
+            diagnostics.append(.error("the library leaves symbols undefined that only rt_*, libc and OpenGL ES may: \(disallowed.joined(separator: ", "))"))
         }
         if report.buildVersions.isEmpty {
             diagnostics.append(.error("the library has no LC_BUILD_VERSION; it wasn't built for \(platform.rawValue)"))
@@ -102,8 +102,8 @@ public struct SliceInspector {
     // MARK: Symbols
 
     /// What a sealed native slice may leave undefined (AppRuntime's
-    /// `guest.py`, `ALLOWED_UNDEFINED` and `ALLOWED_APPLE`; §7.5), less
-    /// OpenGL, which this host doesn't provide.
+    /// `guest.py`, `ALLOWED_UNDEFINED` and `ALLOWED_APPLE`; §7.5). OpenGL ES
+    /// is `GLFunctions`.
     static let nativeAllowed: Set<String> = [
         "malloc", "free", "posix_memalign", "memcpy", "memmove", "memset", "memcmp",
         "abort", "write", "clock_gettime", "arc4random_buf", "getentropy", "putchar",
@@ -146,7 +146,7 @@ public struct SliceInspector {
     }
 
     static func isAllowed(_ symbol: String, engine: Engine) -> Bool {
-        if symbol.hasPrefix("rt_") || nativeAllowed.contains(symbol) {
+        if symbol.hasPrefix("rt_") || nativeAllowed.contains(symbol) || GLFunctions.names.contains(symbol) {
             return true
         }
         if engine == .wasm2c, wasm2cAllowed.contains(symbol) {
