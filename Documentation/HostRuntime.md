@@ -99,6 +99,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinUI` | The SwiftUI player (`SwiftUIRenderer.md`) |
 | `DarwinGraphics` | `Surface` over EAGL (iOS) and desktop OpenGL (macOS), and the `GLSurface` views (§5.2) |
 | `DarwinWebKit` | `WebContent` over `WKWebView`, and the `WebView` views (§5.3) |
+| `DarwinFiles` | `Files`: AppRuntime's `HostFiles` over the app container's directories (§5.4) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -214,6 +215,7 @@ behavior. These rules apply across all of them:
 | `HTTPSession` | URLSession | One `URLSession` per contract session, whose delegate dispatches to the task delegates. Redirects and challenges ask the guest synchronously, on the main thread. |
 | Formatting | Foundation | Cached formatters per locale and style. |
 | `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
+| `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -313,6 +315,36 @@ OpenGLES.framework on iOS and OpenGL.framework on macOS.
 - **Dialogs.** `alert`, `confirm` and `prompt` show a `UIAlertController`
   (iOS) or a sheet (macOS); a page that isn't on screen gets the answer of
   a dismissed dialog. Camera and microphone requests are denied.
+
+### 5.4 Files
+
+`DarwinFiles` registers AppRuntime's `HostFiles` for `Files` (AppRuntime's
+`Documentation/Contracts/Files.md`). `HostFiles` does the work with POSIX
+calls on a serial queue. `DarwinFiles` says where the directories are, and
+answers on the main queue inside an autorelease pool.
+
+| `FileDirectory` | In a sandbox | Without one (macOS) |
+|---|---|---|
+| `documents` | `Documents` | `Library/Application Support/<bundle ID>/Documents` |
+| `data` | `Library/Application Support` | `Library/Application Support/<bundle ID>/Data` |
+| `caches` | `Library/Caches` | `Library/Caches/<bundle ID>` |
+| `temporary` | the container's `tmp` | `<bundle ID>` in `NSTemporaryDirectory()` |
+| `bundle` | the app's resources | the app's resources |
+
+- **In a sandbox**, which is every iOS app and every packaged macOS app,
+  the home directory is the app's container, so the paths are inside it.
+- **Without a sandbox**, as in a development run on macOS, the home and
+  temporary directories are the user's, and other apps share them. Each
+  directory is the app's own there, so the app doesn't write to the user's
+  Documents, and emptying `temporary` at start doesn't remove other apps'
+  files.
+- **When it's registered**, `DarwinFiles` makes the writable directories
+  and empties `temporary`. If that fails, it logs the error, and every
+  operation fails with `notFound`.
+- `bundle` is the resources the packager copied into the app, the same
+  directory `loadResource` reads web pages from.
+- `documents` isn't shown in the Files app: that needs a manifest option
+  for file sharing, which doesn't exist yet.
 
 ## 6. Built-in contracts
 
