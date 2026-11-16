@@ -8,6 +8,7 @@ import DynamicNFC
 import DynamicNetworking
 import DynamicRuntime
 import DynamicUI
+import DynamicWebKit
 
 /// What this host implements: its contract modules and their descriptors
 /// (`HostRuntime.md` §3), which compatibility checks a bundle against
@@ -80,6 +81,9 @@ public enum HostContracts {
             ]),
             Module(name: "DarwinUI", descriptors: [
                 RendererProxy.descriptor, RendererDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinWebKit", descriptors: [
+                WebContentProxy.descriptor, WebContentDelegateProxy.descriptor,
             ]),
             Module(name: "DarwinGraphics", descriptors: [
                 SurfaceProxy.descriptor, SurfaceDelegateProxy.descriptor,
