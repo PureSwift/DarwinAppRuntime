@@ -176,6 +176,22 @@ public enum GLSurfaceViews {
     }
 }
 
+/// What `WebView` nodes show (`RenderIR.md`): a page's web view, by its
+/// `identifier()`. `DarwinWebKit` provides them when the app uses
+/// `WebContent`; without it, a `WebView` shows nothing.
+public enum WebViews {
+
+    /// Makes the view of the page with an identifier.
+    public static var provider: ((Int32) -> AnyView)?
+
+    static func view(_ page: PropValue?) -> AnyView {
+        guard let provider, let value = page?.int, let identifier = Int32(exactly: value) else {
+            return AnyView(EmptyView())
+        }
+        return provider(identifier)
+    }
+}
+
 /// A `Shape` node: the SwiftUI shape, filled or stroked.
 struct ShapeNodeView: View {
 
