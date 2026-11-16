@@ -232,6 +232,20 @@ struct VocabularyTests {
         #expect(asked == [7])
     }
 
+    @Test func webViewsComeFromTheProvider() {
+        #expect(WebViews.provider == nil, "nothing without DarwinWebKit")
+        var asked: [Int32] = []
+        WebViews.provider = { identifier in
+            asked.append(identifier)
+            return AnyView(EmptyView())
+        }
+        defer { WebViews.provider = nil }
+        _ = WebViews.view(.int(3))
+        _ = WebViews.view(nil)
+        _ = WebViews.view("3")
+        #expect(asked == [3])
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
