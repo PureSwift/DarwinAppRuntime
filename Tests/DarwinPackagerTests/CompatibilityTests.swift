@@ -85,8 +85,19 @@ import Testing
     }
 
     @Test func rejectsUnknownCapabilities() throws {
-        let fixture = FixtureBundle().with(["RTCapabilities": ["bluetooth", "graphics"]])
-        #expect(try check(fixture, .ios) == [.error("capability 'graphics' isn't supported by this host")])
+        let fixture = FixtureBundle().with(["RTCapabilities": ["bluetooth", "telepathy"]])
+        #expect(try check(fixture, .ios) == [.error("capability 'telepathy' isn't supported by this host")])
+    }
+
+    @Test func acceptsGLES2() throws {
+        let gles2 = FixtureBundle().with([
+            "RTCapabilities": ["graphics"], "RTContracts": [], "RTCapabilityUsage": nil,
+            "RTCapabilityOptions": ["graphics": ["api": "gles2"]],
+        ])
+        #expect(try check(gles2, .ios) == [])
+        #expect(try check(gles2, .macos) == [])
+        let webGPU = gles2.with(["RTCapabilityOptions": ["graphics": ["api": "webgpu"]]])
+        #expect(try check(webGPU, .ios) == [.error("graphics API 'webgpu' isn't supported by this host, which has gles2")])
     }
 
     @Test func requiresUsageTexts() throws {
@@ -117,6 +128,8 @@ import Testing
         #expect(ios["org.pureswift.nfc.Reader"] != nil)
         #expect(macos["org.pureswift.nfc.Reader"] == nil)
         #expect(macos["org.pureswift.ui.Renderer"] != nil)
+        #expect(ios["org.pureswift.graphics.Surface"] != nil)
+        #expect(macos["org.pureswift.graphics.Surface"] != nil)
         #expect(macos["org.pureswift.runtime.Bundle"] != nil)
         #expect(ios.count == macos.count + 5)
     }
