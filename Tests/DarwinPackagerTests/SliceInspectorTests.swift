@@ -66,10 +66,21 @@ import Testing
 
     @Test func rejectsOtherSymbols() {
         let diagnostics = SliceInspector.check(
-            report(symbols: ["rt_call", "objc_msgSend", "$s5Swift5printyy", "glClear"]),
+            report(symbols: ["rt_call", "objc_msgSend", "$s5Swift5printyy", "glMapBufferOES"]),
             platform: .iosSimulator, architectures: ["arm64"], deploymentTarget: "15.0", engine: .native
         )
-        #expect(diagnostics == [.error("the library leaves symbols undefined that only rt_* and libc may: $s5Swift5printyy, glClear, objc_msgSend")])
+        #expect(diagnostics == [.error("the library leaves symbols undefined that only rt_*, libc and OpenGL ES may: $s5Swift5printyy, glMapBufferOES, objc_msgSend")])
+    }
+
+    /// OpenGL ES 2.0 under WebGL 1 rules, for either engine: wasm2c output
+    /// calls GL directly too, and asks `rt_gl_context_generation`.
+    @Test func acceptsOpenGLES() {
+        let symbols: Set<String> = ["rt_call", "glClear", "glDrawElements", "glShaderSource", "rt_gl_context_generation"]
+        for engine in [Engine.native, .wasm2c] {
+            #expect(SliceInspector.check(report(symbols: symbols), platform: .iosSimulator, architectures: ["arm64"], deploymentTarget: "15.0", engine: engine) == [])
+        }
+        #expect(GLFunctions.names.count == 140)
+        #expect(!GLFunctions.names.contains("glShaderBinary"), "not under WebGL rules")
     }
 
     @Test func acceptsWasmRuntimeSymbolsFromWasm2cOnly() {
