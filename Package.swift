@@ -42,6 +42,7 @@ let package = Package(
         .library(name: "DarwinNetworking", targets: ["DarwinNetworking"]),
         .library(name: "DarwinFormatting", targets: ["DarwinFormatting"]),
         .library(name: "DarwinUI", targets: ["DarwinUI"]),
+        .library(name: "DarwinWebKit", targets: ["DarwinWebKit"]),
         .library(name: "DarwinGraphics", targets: ["DarwinGraphics"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
@@ -132,6 +133,15 @@ let package = Package(
             linkerSettings: [.linkedFramework("QuartzCore")]
         ),
 
+        // MARK: - Web views
+
+        .target(
+            name: "DarwinWebKit",
+            dependencies: ["DarwinHost", "DarwinUI", runtime("DynamicWebKit")],
+            swiftSettings: host,
+            linkerSettings: [.linkedFramework("WebKit")]
+        ),
+
         // MARK: - App
 
         .target(
@@ -139,7 +149,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinFormatting", "DarwinUI", "DarwinGraphics",
-                runtime("CRuntime"),
+                "DarwinWebKit", runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -155,7 +165,7 @@ let package = Package(
                 runtime("RuntimeNative"), runtime("DynamicRuntime"), runtime("DynamicBluetooth"), runtime("DynamicLocation"),
                 runtime("DynamicMotion"), runtime("DynamicNFC"), runtime("DynamicDevice"),
                 runtime("DynamicNetworking"), runtime("DynamicFormatting"), runtime("DynamicUI"),
-                runtime("DynamicGraphics"),
+                runtime("DynamicGraphics"), runtime("DynamicWebKit"),
             ]
         ),
         .executableTarget(
@@ -177,6 +187,7 @@ let package = Package(
         .testTarget(name: "DarwinNetworkingTests", dependencies: ["DarwinNetworking"], swiftSettings: host),
         .testTarget(name: "DarwinFormattingTests", dependencies: ["DarwinFormatting"], swiftSettings: host),
         .testTarget(name: "DarwinUITests", dependencies: ["DarwinUI"], swiftSettings: host),
+        .testTarget(name: "DarwinWebKitTests", dependencies: ["DarwinWebKit"], swiftSettings: host),
         .testTarget(name: "DarwinGraphicsTests", dependencies: ["DarwinGraphics"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),

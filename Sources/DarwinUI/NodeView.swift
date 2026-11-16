@@ -43,6 +43,9 @@ struct NodeView: View {
         case "Shape":
             return AnyView(ShapeNodeView(props: props))
 
+        case "WebView":
+            return WebViews.view(props["page"])
+
         case "GLSurface":
             return GLSurfaceViews.view(props["surface"])
 
