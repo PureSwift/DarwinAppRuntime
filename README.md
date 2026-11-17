@@ -41,6 +41,7 @@ them.
 | `DarwinBluetooth`, `DarwinLocation`, `DarwinMotion`, `DarwinNFC`, `DarwinDevice`, `DarwinNetworking`, `DarwinFormatting` | The contract implementations over CoreBluetooth, CoreLocation, CoreMotion, CoreNFC, UIKit / IOKit, URLSession and Foundation |
 | `DarwinUI` | The SwiftUI renderer |
 | `DarwinWebKit` | `WebContent`: web pages in `WebView` views, over `WKWebView` |
+| `DarwinFiles` | `Files`: the app's own files and its bundle's, through AppRuntime's `HostFiles` |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer |
 | `DarwinPackager`, `darwin-app` | The packager |
