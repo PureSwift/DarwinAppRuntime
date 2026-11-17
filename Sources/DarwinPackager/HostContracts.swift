@@ -1,4 +1,5 @@
 import DynamicBluetooth
+import DynamicDefaults
 import DynamicDevice
 import DynamicFiles
 import DynamicFormatting
@@ -92,6 +93,7 @@ public enum HostContracts {
             Module(name: "DarwinFiles", descriptors: [
                 FilesProxy.descriptor, FileCallbackProxy.descriptor,
             ]),
+            Module(name: "DarwinDefaults", descriptors: [DefaultsProxy.descriptor]),
         ]
     }
 
