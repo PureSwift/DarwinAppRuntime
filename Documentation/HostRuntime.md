@@ -100,6 +100,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinGraphics` | `Surface` over EAGL (iOS) and desktop OpenGL (macOS), and the `GLSurface` views (§5.2) |
 | `DarwinWebKit` | `WebContent` over `WKWebView`, and the `WebView` views (§5.3) |
 | `DarwinFiles` | `Files`: AppRuntime's `HostFiles` over the app container's directories (§5.4) |
+| `DarwinDefaults` | `Defaults`: AppRuntime's `HostDefaults` over a `UserDefaults` suite (§5.5) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -216,6 +217,7 @@ behavior. These rules apply across all of them:
 | Formatting | Foundation | Cached formatters per locale and style. |
 | `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
 | `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
+| `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -345,6 +347,28 @@ answers on the main queue inside an autorelease pool.
   directory `loadResource` reads web pages from.
 - `documents` isn't shown in the Files app: that needs a manifest option
   for file sharing, which doesn't exist yet.
+
+### 5.5 Defaults
+
+`DarwinDefaults` registers AppRuntime's `HostDefaults` for `Defaults`
+(AppRuntime's `Documentation/Contracts/Defaults.md`). `HostDefaults`
+refuses empty keys and sorts the keys. `DarwinDefaults` gives it the
+store, `UserDefaultsStorage`:
+
+- **A suite of the app's own**, `<bundle identifier>.defaults`, apart from
+  the host's standard defaults. A suite can't have the app's own name,
+  since that's the standard defaults.
+- **Reads see only the suite's own values** (`persistentDomain(forName:)`).
+  A plain `UserDefaults` lookup also searches the global domain and the
+  command line's arguments, which would show the app values it never set,
+  such as `AppleLanguages`.
+- **Strings are stored as strings, and bytes as `Data`**, so `defaults
+  read` shows them as they are. A value of another kind, written by
+  something other than the app, reads as missing.
+- **A value over 64 KB is refused**, and the old value stays.
+- `UserDefaults` keeps what's set across launches. Without a sandbox, the
+  suite is in the user's `Library/Preferences`, named for the app as it
+  is in a sandbox.
 
 ## 6. Built-in contracts
 
