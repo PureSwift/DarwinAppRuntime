@@ -1,4 +1,5 @@
 import DarwinBluetooth
+import DarwinDefaults
 import DarwinDevice
 import DarwinFiles
 import DarwinFormatting
@@ -36,6 +37,7 @@ public enum HostApp {
             DarwinGraphics.self,
             DarwinWebKit.self,
             DarwinFiles.self,
+            DarwinDefaults.self,
         ]
     }
 
