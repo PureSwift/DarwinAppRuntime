@@ -2,7 +2,6 @@ import DarwinBluetooth
 import DarwinDefaults
 import DarwinDevice
 import DarwinFiles
-import DarwinFormatting
 import DarwinGraphics
 import DarwinHost
 import DarwinLocation
@@ -12,6 +11,7 @@ import DarwinNFC
 import DarwinUI
 import DarwinWebKit
 import Foundation
+import RuntimeFormatting
 
 /// The app's `main`. The packager generates it:
 ///
@@ -32,7 +32,7 @@ public enum HostApp {
             DarwinNFC.self,
             DarwinDeviceModule.self,
             DarwinNetworking.self,
-            DarwinFormatting.self,
+            HostFormattingModule.self,
             DarwinUI.self,
             DarwinGraphics.self,
             DarwinWebKit.self,
@@ -45,6 +45,7 @@ public enum HostApp {
     /// launched. Never returns.
     public static func run(_ entry: AppEntryPoints) -> Never {
         HostSession.shared.entry = entry
+        HostFormattingModule.logToHost()
         RuntimeHostApp.main()
         exit(0)
     }
