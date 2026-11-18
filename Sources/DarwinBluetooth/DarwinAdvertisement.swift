@@ -3,13 +3,13 @@ import DynamicBluetooth
 import DynamicRuntime
 import Foundation
 
-/// The `Advertisement` contract over CoreBluetooth's advertisement
+/// The `BluetoothAdvertisement` contract over CoreBluetooth's advertisement
 /// dictionary, read once when the advertisement arrives.
 ///
 /// Service UUIDs include those in the overflow area (iOS apps advertising
 /// in the background). CoreBluetooth merges the scan response into the
 /// same dictionary.
-public final class DarwinAdvertisement: Advertisement {
+public final class DarwinAdvertisement: BluetoothAdvertisement {
 
     private let name: String?
 
