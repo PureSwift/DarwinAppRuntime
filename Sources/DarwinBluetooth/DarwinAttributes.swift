@@ -10,9 +10,9 @@ protocol AttributeWrapper: AnyObject {
     var owningPeripheral: DarwinPeripheral { get }
 }
 
-/// The `Service` contract over a `CBService`. `DarwinPeripheral` keeps one
+/// The `BluetoothService` contract over a `CBService`. `DarwinPeripheral` keeps one
 /// per `CBService` while both live; it keeps its peripheral alive.
-public final class DarwinService: Service, AttributeWrapper {
+public final class DarwinService: BluetoothService, AttributeWrapper {
 
     let service: CBService
 
@@ -31,18 +31,18 @@ public final class DarwinService: Service, AttributeWrapper {
         service.isPrimary
     }
 
-    public func characteristics() -> [any Characteristic] {
+    public func characteristics() -> [any BluetoothCharacteristic] {
         (service.characteristics ?? []).map { owningPeripheral.wrapper(for: $0, in: self) }
     }
 
-    public func peripheral() -> any Peripheral {
+    public func peripheral() -> any BluetoothPeripheral {
         owningPeripheral
     }
 }
 
-/// The `Characteristic` contract over a `CBCharacteristic`. It keeps its
+/// The `BluetoothCharacteristic` contract over a `CBCharacteristic`. It keeps its
 /// service alive.
-public final class DarwinCharacteristic: Characteristic, AttributeWrapper {
+public final class DarwinCharacteristic: BluetoothCharacteristic, AttributeWrapper {
 
     let characteristic: CBCharacteristic
 
@@ -73,18 +73,18 @@ public final class DarwinCharacteristic: Characteristic, AttributeWrapper {
         characteristic.isNotifying
     }
 
-    public func descriptors() -> [any Descriptor] {
+    public func descriptors() -> [any BluetoothDescriptor] {
         (characteristic.descriptors ?? []).map { owningPeripheral.wrapper(for: $0, in: self) }
     }
 
-    public func service() -> any Service {
+    public func service() -> any BluetoothService {
         owningService
     }
 }
 
-/// The `Descriptor` contract over a `CBDescriptor`. It keeps its
+/// The `BluetoothDescriptor` contract over a `CBDescriptor`. It keeps its
 /// characteristic alive.
-public final class DarwinDescriptor: Descriptor, AttributeWrapper {
+public final class DarwinDescriptor: BluetoothDescriptor, AttributeWrapper {
 
     let descriptor: CBDescriptor
 
@@ -109,7 +109,7 @@ public final class DarwinDescriptor: Descriptor, AttributeWrapper {
         CoreBluetoothMapping.descriptorBytes(descriptor.value)
     }
 
-    public func characteristic() -> any Characteristic {
+    public func characteristic() -> any BluetoothCharacteristic {
         owningCharacteristic
     }
 }
