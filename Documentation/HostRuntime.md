@@ -95,14 +95,13 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinNFC` | `NFCReader` over CoreNFC (iOS only) |
 | `DarwinDevice` | `Device` over UIDevice, ProcessInfo and IOKit (macOS) |
 | `DarwinNetworking` | `HTTPSession` over URLSession |
-| `DarwinFormatting` | Number and date formatting over Foundation's formatters |
 | `DarwinUI` | The SwiftUI player (`SwiftUIRenderer.md`) |
 | `DarwinGraphics` | `Surface` over EAGL (iOS) and desktop OpenGL (macOS), and the `GLSurface` views (§5.2) |
 | `DarwinWebKit` | `WebContent` over `WKWebView`, and the `WebView` views (§5.3) |
 | `DarwinFiles` | `Files`: AppRuntime's `HostFiles` over the app container's directories (§5.4) |
 | `DarwinDefaults` | `Defaults`: AppRuntime's `HostDefaults` over a `UserDefaults` suite (§5.5) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
-| `DarwinHostApp` | The app's `main`: a SwiftUI `App` |
+| `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
 
 `DarwinWasmHost` is a separate package (iOS 18 / macOS 15) with the WasmKit
@@ -214,7 +213,7 @@ behavior. These rules apply across all of them:
 | `NFCReader` | CoreNFC | iOS only; on macOS the contract isn't registered, so `rt_class` returns `0`. An `NFCTagReaderSession` or `NFCNDEFReaderSession` is chosen by the requested tag types. The manifest's declared formats limit which sessions the entitlement allows. |
 | `Device` | UIDevice, ProcessInfo; IOKit / IOPowerSources on macOS | Battery and orientation monitoring are on only while the guest asks for them. `vendorIdentifier` is `identifierForVendor` (`nil` on macOS). |
 | `HTTPSession` | URLSession | One `URLSession` per contract session, whose delegate dispatches to the task delegates. Redirects and challenges ask the guest synchronously, on the main thread. |
-| Formatting | Foundation | Cached formatters per locale and style. |
+| `LocaleInfo`, `NumberFormat`, `DateFormat` | Foundation, through AppRuntime's `RuntimeFormatting` | AppRuntime's `HostFormattingModule`, which the Linux host shares; this host has no formatting code of its own. Formatters are cached per locale, style and options. What a guest asks for that the contracts don't know, such as an unknown style or time zone, is replaced (decimal, the style left as it was, the user's time zone) and logged through `HostFormattingModule.log`. |
 | `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
 | `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
 | `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
