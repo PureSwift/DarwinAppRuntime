@@ -3,7 +3,7 @@ import DarwinHost
 import DynamicBluetooth
 import Foundation
 
-/// The `Central` contract over the shared `CBCentralManager`.
+/// The `BluetoothCentral` contract over the shared `CBCentralManager`.
 ///
 /// - `make` never prompts: the manager is created only if authorization is
 ///   already decided. Until it exists, `state()` is `unknown`.
@@ -15,9 +15,9 @@ import Foundation
 ///   `CBCentralManager.connect` never times out.
 ///
 /// Every call that reports through the delegate reports exactly once.
-public final class DarwinCentral: Central {
+public final class DarwinCentral: BluetoothCentral {
 
-    let delegate: any CentralDelegate
+    let delegate: any BluetoothCentralDelegate
 
     let hub: CentralHub
 
@@ -38,7 +38,7 @@ public final class DarwinCentral: Central {
     /// `cancelConnection` calls waiting for CoreBluetooth's disconnect.
     private var cancelling: [UUID: (peripheral: DarwinPeripheral, calls: Int)] = [:]
 
-    init(delegate: any CentralDelegate, hub: CentralHub, timeouts: ConnectionTimeouts = ConnectionTimeouts()) {
+    init(delegate: any BluetoothCentralDelegate, hub: CentralHub, timeouts: ConnectionTimeouts = ConnectionTimeouts()) {
         self.delegate = delegate
         self.hub = hub
         self.timeouts = timeouts
@@ -56,11 +56,11 @@ public final class DarwinCentral: Central {
         CoreBluetoothMapping.authorization(CentralHub.shared.authorization()).rawValue
     }
 
-    public static func make(_ delegate: any CentralDelegate) -> DarwinCentral {
+    public static func make(_ delegate: any BluetoothCentralDelegate) -> DarwinCentral {
         make(delegate, hub: .shared)
     }
 
-    static func make(_ delegate: any CentralDelegate, hub: CentralHub) -> DarwinCentral {
+    static func make(_ delegate: any BluetoothCentralDelegate, hub: CentralHub) -> DarwinCentral {
         let central = DarwinCentral(delegate: delegate, hub: hub)
         hub.add(central)
         if hub.manager == nil {
@@ -122,7 +122,7 @@ public final class DarwinCentral: Central {
 
     // MARK: Connections
 
-    public func connect(_ peripheral: any Peripheral, timeout: Int32) {
+    public func connect(_ peripheral: any BluetoothPeripheral, timeout: Int32) {
         guard let target = DarwinBluetooth.resolve(peripheral, as: DarwinPeripheral.self) else {
             AppHost.logger.error("Bluetooth connect: not a peripheral from this host")
             DarwinBluetooth.post { [self] in
@@ -154,7 +154,7 @@ public final class DarwinCentral: Central {
         }
     }
 
-    public func cancelConnection(_ peripheral: any Peripheral) {
+    public func cancelConnection(_ peripheral: any BluetoothPeripheral) {
         guard let target = DarwinBluetooth.resolve(peripheral, as: DarwinPeripheral.self) else {
             AppHost.logger.error("Bluetooth cancelConnection: not a peripheral from this host")
             DarwinBluetooth.post { [self] in
@@ -180,11 +180,11 @@ public final class DarwinCentral: Central {
         hub.cancelConnection(target)
     }
 
-    public func retrievePeripherals(_ identifiers: [String]) -> [any Peripheral] {
+    public func retrievePeripherals(_ identifiers: [String]) -> [any BluetoothPeripheral] {
         hub.retrievePeripherals(identifiers.compactMap(UUID.init(uuidString:)))
     }
 
-    public func retrieveConnectedPeripherals(_ services: [BluetoothUUID]) -> [any Peripheral] {
+    public func retrieveConnectedPeripherals(_ services: [BluetoothUUID]) -> [any BluetoothPeripheral] {
         hub.retrieveConnectedPeripherals(services.map(CoreBluetoothMapping.cbUUID))
     }
 
