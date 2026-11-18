@@ -24,7 +24,8 @@ public enum HostContracts {
     /// A host module and the contracts and callback interfaces it registers.
     public struct Module: Sendable {
 
-        /// The host module, such as `DarwinBluetooth`.
+        /// The host module, such as `DarwinBluetooth` or AppRuntime's
+        /// `RuntimeFormatting`.
         public var name: String
 
         public var descriptors: [ContractDescriptor]
@@ -78,7 +79,8 @@ public enum HostContracts {
                 HTTPTaskProxy.descriptor, HTTPTaskDelegateProxy.descriptor,
                 HTTPCredentialProxy.descriptor, ParsedURLProxy.descriptor,
             ]),
-            Module(name: "DarwinFormatting", descriptors: [
+            // AppRuntime's, shared with the Linux host.
+            Module(name: "RuntimeFormatting", descriptors: [
                 NumberFormatProxy.descriptor, DateFormatProxy.descriptor, LocaleInfoProxy.descriptor,
             ]),
             Module(name: "DarwinUI", descriptors: [
