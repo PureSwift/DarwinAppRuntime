@@ -15,26 +15,26 @@ public enum DarwinBluetooth: HostModule {
 
     public static var contracts: [ContractDescriptor] {
         [
-            CentralProxy.descriptor,
-            CentralDelegateProxy.descriptor,
-            PeripheralProxy.descriptor,
-            PeripheralDelegateProxy.descriptor,
-            ServiceProxy.descriptor,
-            CharacteristicProxy.descriptor,
-            DescriptorProxy.descriptor,
-            AdvertisementProxy.descriptor,
+            BluetoothCentralProxy.descriptor,
+            BluetoothCentralDelegateProxy.descriptor,
+            BluetoothPeripheralProxy.descriptor,
+            BluetoothPeripheralDelegateProxy.descriptor,
+            BluetoothServiceProxy.descriptor,
+            BluetoothCharacteristicProxy.descriptor,
+            BluetoothDescriptorProxy.descriptor,
+            BluetoothAdvertisementProxy.descriptor,
         ]
     }
 
     public static func register(in registrar: some ContractRegistrar) {
-        CentralProxy.register(DarwinCentral.self, in: registrar)
-        PeripheralProxy.register(DarwinPeripheral.self, in: registrar)
-        ServiceProxy.register(DarwinService.self, in: registrar)
-        CharacteristicProxy.register(DarwinCharacteristic.self, in: registrar)
-        DescriptorProxy.register(DarwinDescriptor.self, in: registrar)
-        AdvertisementProxy.register(DarwinAdvertisement.self, in: registrar)
-        CentralDelegateProxy.registerInterface(in: registrar)
-        PeripheralDelegateProxy.registerInterface(in: registrar)
+        BluetoothCentralProxy.register(DarwinCentral.self, in: registrar)
+        BluetoothPeripheralProxy.register(DarwinPeripheral.self, in: registrar)
+        BluetoothServiceProxy.register(DarwinService.self, in: registrar)
+        BluetoothCharacteristicProxy.register(DarwinCharacteristic.self, in: registrar)
+        BluetoothDescriptorProxy.register(DarwinDescriptor.self, in: registrar)
+        BluetoothAdvertisementProxy.register(DarwinAdvertisement.self, in: registrar)
+        BluetoothCentralDelegateProxy.registerInterface(in: registrar)
+        BluetoothPeripheralDelegateProxy.registerInterface(in: registrar)
     }
 
     public static func permissionProviders() -> [Capability: any PermissionProvider] {
