@@ -570,60 +570,60 @@ func drainMainQueue() async {
     }
 }
 
-final class RecordingCentralDelegate: CentralDelegate {
+final class RecordingCentralDelegate: BluetoothCentralDelegate {
 
     var events: [String] = []
 
     var peripherals: [AnyObject] = []
 
-    func didChangeAuthorization(_ central: any Central, status: Int32) {
+    func didChangeAuthorization(_ central: any BluetoothCentral, status: Int32) {
         events.append("authorization \(status)")
     }
 
-    func didUpdateState(_ central: any Central, state: Int32) {
+    func didUpdateState(_ central: any BluetoothCentral, state: Int32) {
         events.append("state \(state)")
     }
 
-    func didDiscover(_ central: any Central, peripheral: any Peripheral, advertisement: any Advertisement, rssi: Int32) {
+    func didDiscover(_ central: any BluetoothCentral, peripheral: any BluetoothPeripheral, advertisement: any BluetoothAdvertisement, rssi: Int32) {
         events.append("discover \(rssi)")
         peripherals.append(peripheral)
     }
 
-    func didStopScanning(_ central: any Central, error: Int32) {
+    func didStopScanning(_ central: any BluetoothCentral, error: Int32) {
         events.append("stopScanning \(error)")
     }
 
-    func didConnect(_ central: any Central, peripheral: any Peripheral) {
+    func didConnect(_ central: any BluetoothCentral, peripheral: any BluetoothPeripheral) {
         events.append("connect")
         peripherals.append(peripheral)
     }
 
-    func didFailToConnect(_ central: any Central, peripheral: any Peripheral, error: Int32) {
+    func didFailToConnect(_ central: any BluetoothCentral, peripheral: any BluetoothPeripheral, error: Int32) {
         events.append("failToConnect \(error)")
         peripherals.append(peripheral)
     }
 
-    func didDisconnect(_ central: any Central, peripheral: any Peripheral, error: Int32) {
+    func didDisconnect(_ central: any BluetoothCentral, peripheral: any BluetoothPeripheral, error: Int32) {
         events.append("disconnect \(error)")
         peripherals.append(peripheral)
     }
 }
 
 /// A peripheral this host didn't make.
-final class ForeignPeripheral: Peripheral {
+final class ForeignPeripheral: BluetoothPeripheral {
     func identifier() -> String { "AA:BB:CC:DD:EE:FF" }
     func name() -> String? { nil }
     func state() -> Int32 { 0 }
-    func setDelegate(_ delegate: (any PeripheralDelegate)?) { }
+    func setDelegate(_ delegate: (any BluetoothPeripheralDelegate)?) { }
     func discoverServices(_ uuids: [BluetoothUUID]) { }
-    func services() -> [any Service] { [] }
-    func discoverCharacteristics(_ uuids: [BluetoothUUID], for service: any Service) { }
-    func discoverDescriptors(for characteristic: any Characteristic) { }
-    func readValue(_ characteristic: any Characteristic) { }
-    func writeValue(_ value: [UInt8], for characteristic: any Characteristic, type: Int32) { }
-    func setNotifyValue(_ enabled: Bool, for characteristic: any Characteristic) { }
-    func readDescriptor(_ descriptor: any Descriptor) { }
-    func writeDescriptor(_ value: [UInt8], for descriptor: any Descriptor) { }
+    func services() -> [any BluetoothService] { [] }
+    func discoverCharacteristics(_ uuids: [BluetoothUUID], for service: any BluetoothService) { }
+    func discoverDescriptors(for characteristic: any BluetoothCharacteristic) { }
+    func readValue(_ characteristic: any BluetoothCharacteristic) { }
+    func writeValue(_ value: [UInt8], for characteristic: any BluetoothCharacteristic, type: Int32) { }
+    func setNotifyValue(_ enabled: Bool, for characteristic: any BluetoothCharacteristic) { }
+    func readDescriptor(_ descriptor: any BluetoothDescriptor) { }
+    func writeDescriptor(_ value: [UInt8], for descriptor: any BluetoothDescriptor) { }
     func readRSSI() { }
     func maximumWriteLength(_ type: Int32) -> Int32 { 20 }
     func canSendWriteWithoutResponse() -> Bool { true }
