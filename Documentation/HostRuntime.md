@@ -89,7 +89,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | Module | Contents |
 |---|---|
 | `DarwinHost` | Startup, bundle checks, engine selection, lifecycle, `HostClock`, the main-thread executor for callbacks, and the built-in contracts the core doesn't serve (`Permissions`, `AppBundle`, `Application`; §6) |
-| `DarwinBluetooth` | `Central` and friends over CoreBluetooth |
+| `DarwinBluetooth` | `BluetoothCentral` and friends over CoreBluetooth |
 | `DarwinLocation` | `LocationManager` over CoreLocation |
 | `DarwinMotion` | `MotionManager`, `Pedometer`, `Altimeter`, `ActivityRecognizer` over CoreMotion |
 | `DarwinNFC` | `NFCReader` over CoreNFC (iOS only) |
@@ -163,11 +163,11 @@ Each implementation is a Swift class that conforms to the contract's
 protocol and is registered with the generated helper:
 
 ```swift
-CentralProxy.register(DarwinCentral.self, in: native)
-CentralDelegateProxy.registerInterface(in: native)
+BluetoothCentralProxy.register(DarwinCentral.self, in: native)
+BluetoothCentralDelegateProxy.registerInterface(in: native)
 ```
 
-A delegate the guest passes in arrives as a proxy (`any CentralDelegate`),
+A delegate the guest passes in arrives as a proxy (`any BluetoothCentralDelegate`),
 and the implementation calls it like any Swift object. The contract
 documents in AppRuntime (`Documentation/Contracts/*.md`) define the
 behavior. These rules apply across all of them:
@@ -208,7 +208,7 @@ behavior. These rules apply across all of them:
 
 | Contract | Framework | Notes |
 |---|---|---|
-| Bluetooth `Central`, `Peripheral`, … | CoreBluetooth | `BluetoothUUID` strings in any of the three forms (16-bit, 32-bit, 128-bit) map to `CBUUID`. `Peripheral.identifier` is `CBPeripheral.identifier`; there is no MAC address. Scan modes map to `CBCentralManagerScanOptionAllowDuplicatesKey` (iOS has no power modes). `ScanMode` is accepted and ignored. Connection timeouts are enforced by the implementation with a main-queue timer, since CoreBluetooth has none. |
+| `BluetoothCentral`, `BluetoothPeripheral`, … | CoreBluetooth | `BluetoothUUID` strings in any of the three forms (16-bit, 32-bit, 128-bit) map to `CBUUID`. `BluetoothPeripheral.identifier` is `CBPeripheral.identifier`; there is no MAC address. Scan modes map to `CBCentralManagerScanOptionAllowDuplicatesKey` (iOS has no power modes). `ScanMode` is accepted and ignored. Connection timeouts are enforced by the implementation with a main-queue timer, since CoreBluetooth has none. |
 | `LocationManager` | CoreLocation | Accuracy constants map to `kCLLocationAccuracy…`. `requestFullAccuracy` uses `requestTemporaryFullAccuracyAuthorization(withPurposeKey:)`. |
 | `MotionManager`, `Pedometer`, `Altimeter`, `ActivityRecognizer` | CoreMotion | Timestamps are converted to host monotonic nanoseconds (`Clock.now`). On macOS, `isAvailable` is false for most sensors. |
 | `NFCReader` | CoreNFC | iOS only; on macOS the contract isn't registered, so `rt_class` returns `0`. An `NFCTagReaderSession` or `NFCNDEFReaderSession` is chosen by the requested tag types. The manifest's declared formats limit which sessions the entitlement allows. |

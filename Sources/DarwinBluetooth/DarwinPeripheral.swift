@@ -3,7 +3,7 @@ import DarwinHost
 import DynamicBluetooth
 import Foundation
 
-/// The `Peripheral` contract over a `CBPeripheral`. There is one per
+/// The `BluetoothPeripheral` contract over a `CBPeripheral`. There is one per
 /// `CBPeripheral` while both live (`CentralHub.wrapper(for:)`), and it keeps
 /// one wrapper per service, characteristic and descriptor the same way.
 ///
@@ -11,13 +11,13 @@ import Foundation
 /// requests it is waiting on, so that requests made while disconnected, or
 /// outstanding when the link drops, still get their one callback, with
 /// `notConnected`.
-public final class DarwinPeripheral: Peripheral {
+public final class DarwinPeripheral: BluetoothPeripheral {
 
     let peripheral: CBPeripheral
 
     let peripheralID: UUID
 
-    private var delegate: (any PeripheralDelegate)?
+    private var delegate: (any BluetoothPeripheralDelegate)?
 
     /// CoreBluetooth's delegate. `CBPeripheral.delegate` is weak; this
     /// object owns it.
@@ -71,7 +71,7 @@ public final class DarwinPeripheral: Peripheral {
         CoreBluetoothMapping.peripheralState(peripheral.state).rawValue
     }
 
-    public func setDelegate(_ delegate: (any PeripheralDelegate)?) {
+    public func setDelegate(_ delegate: (any BluetoothPeripheralDelegate)?) {
         self.delegate = delegate
     }
 
@@ -84,11 +84,11 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.discoverServices(uuids.isEmpty ? nil : uuids.map(CoreBluetoothMapping.cbUUID))
     }
 
-    public func services() -> [any Service] {
+    public func services() -> [any BluetoothService] {
         (peripheral.services ?? []).map(wrapper(for:))
     }
 
-    public func discoverCharacteristics(_ uuids: [BluetoothUUID], for service: any Service) {
+    public func discoverCharacteristics(_ uuids: [BluetoothUUID], for service: any BluetoothService) {
         guard let target = own(service, as: DarwinService.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didDiscoverCharacteristics(self, service: service, error: error)
@@ -103,7 +103,7 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.discoverCharacteristics(uuids.isEmpty ? nil : uuids.map(CoreBluetoothMapping.cbUUID), for: target.service)
     }
 
-    public func discoverDescriptors(for characteristic: any Characteristic) {
+    public func discoverDescriptors(for characteristic: any BluetoothCharacteristic) {
         guard let target = own(characteristic, as: DarwinCharacteristic.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didDiscoverDescriptors(self, characteristic: characteristic, error: error)
@@ -118,7 +118,7 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.discoverDescriptors(for: target.characteristic)
     }
 
-    public func readValue(_ characteristic: any Characteristic) {
+    public func readValue(_ characteristic: any BluetoothCharacteristic) {
         guard let target = own(characteristic, as: DarwinCharacteristic.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didUpdateValue(self, characteristic: characteristic, value: [], error: error)
@@ -133,7 +133,7 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.readValue(for: target.characteristic)
     }
 
-    public func writeValue(_ value: [UInt8], for characteristic: any Characteristic, type: Int32) {
+    public func writeValue(_ value: [UInt8], for characteristic: any BluetoothCharacteristic, type: Int32) {
         guard let writeType = CoreBluetoothMapping.writeType(type) else {
             AppHost.logger.error("Bluetooth writeValue: unknown write type \(type, privacy: .public)")
             fail(.invalidParameters) { delegate, error in
@@ -165,7 +165,7 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.writeValue(Data(value), for: target.characteristic, type: .withResponse)
     }
 
-    public func setNotifyValue(_ enabled: Bool, for characteristic: any Characteristic) {
+    public func setNotifyValue(_ enabled: Bool, for characteristic: any BluetoothCharacteristic) {
         guard let target = own(characteristic, as: DarwinCharacteristic.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didUpdateNotificationState(self, characteristic: characteristic, error: error)
@@ -180,7 +180,7 @@ public final class DarwinPeripheral: Peripheral {
         peripheral.setNotifyValue(enabled, for: target.characteristic)
     }
 
-    public func readDescriptor(_ descriptor: any Descriptor) {
+    public func readDescriptor(_ descriptor: any BluetoothDescriptor) {
         guard let target = own(descriptor, as: DarwinDescriptor.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didUpdateDescriptorValue(self, descriptor: descriptor, value: [], error: error)
@@ -198,7 +198,7 @@ public final class DarwinPeripheral: Peripheral {
     /// CoreBluetooth raises an exception for writes to the Client
     /// Characteristic Configuration descriptor; they fail with
     /// `operationNotSupported` instead. Use `setNotifyValue`.
-    public func writeDescriptor(_ value: [UInt8], for descriptor: any Descriptor) {
+    public func writeDescriptor(_ value: [UInt8], for descriptor: any BluetoothDescriptor) {
         guard let target = own(descriptor, as: DarwinDescriptor.self) else {
             fail(.invalidParameters) { delegate, error in
                 delegate.didWriteDescriptorValue(self, descriptor: descriptor, error: error)
@@ -301,7 +301,7 @@ public final class DarwinPeripheral: Peripheral {
     /// returns.
     private func fail(
         _ error: BluetoothError = .notConnected,
-        _ report: @escaping (any PeripheralDelegate, Int32) -> Void
+        _ report: @escaping (any BluetoothPeripheralDelegate, Int32) -> Void
     ) {
         DarwinBluetooth.post { [self] in
             guard let delegate else { return }

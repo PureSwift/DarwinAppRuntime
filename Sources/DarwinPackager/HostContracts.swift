@@ -49,10 +49,10 @@ public enum HostContracts {
         [
             Module(name: "DarwinHost", descriptors: BuiltinContracts.all),
             Module(name: "DarwinBluetooth", descriptors: [
-                CentralProxy.descriptor, CentralDelegateProxy.descriptor,
-                PeripheralProxy.descriptor, PeripheralDelegateProxy.descriptor,
-                ServiceProxy.descriptor, CharacteristicProxy.descriptor,
-                DescriptorProxy.descriptor, AdvertisementProxy.descriptor,
+                BluetoothCentralProxy.descriptor, BluetoothCentralDelegateProxy.descriptor,
+                BluetoothPeripheralProxy.descriptor, BluetoothPeripheralDelegateProxy.descriptor,
+                BluetoothServiceProxy.descriptor, BluetoothCharacteristicProxy.descriptor,
+                BluetoothDescriptorProxy.descriptor, BluetoothAdvertisementProxy.descriptor,
             ]),
             Module(name: "DarwinLocation", descriptors: [
                 LocationManagerProxy.descriptor, LocationManagerDelegateProxy.descriptor,
