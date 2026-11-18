@@ -22,6 +22,7 @@ struct FileLocationsTests {
             .temporary: "/Containers/App/Data/tmp",
             .bundle: "/Apps/Example.app",
         ])
+        #expect(locations.stores == "/Containers/App/Data/Library/Stores", "in no file directory")
     }
 
     @Test func withoutASandboxEachIsTheAppsOwn() {
@@ -39,6 +40,7 @@ struct FileLocationsTests {
             .temporary: "/var/folders/xy/T/com.example.notes",
             .bundle: "/Apps/Example.app/Contents/Resources",
         ], "not the user's Documents, and not the shared temporary directory, which is emptied")
+        #expect(locations.stores == "/Users/someone/Library/Application Support/com.example.notes/Stores")
     }
 
     @Test func noResourcesNoBundle() {

@@ -43,6 +43,7 @@ them.
 | `DarwinWebKit` | `WebContent`: web pages in `WebView` views, over `WKWebView` |
 | `DarwinFiles` | `Files`: the app's own files and its bundle's, through AppRuntime's `HostFiles` |
 | `DarwinDefaults` | `Defaults`: the app's settings in a `UserDefaults` suite, through AppRuntime's `HostDefaults` |
+| `DarwinModelStore` | `ModelStore`: the app's model stores in Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer. It also registers AppRuntime's `RuntimeFormatting` (`LocaleInfo`, `NumberFormat`, `DateFormat` over Foundation), which the Linux host shares |
 | `DarwinPackager`, `darwin-app` | The packager |

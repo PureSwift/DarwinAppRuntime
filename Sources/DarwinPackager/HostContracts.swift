@@ -1,4 +1,5 @@
 import DynamicBluetooth
+import DynamicCoreModel
 import DynamicDefaults
 import DynamicDevice
 import DynamicFiles
@@ -96,6 +97,12 @@ public enum HostContracts {
                 FilesProxy.descriptor, FileCallbackProxy.descriptor,
             ]),
             Module(name: "DarwinDefaults", descriptors: [DefaultsProxy.descriptor]),
+            Module(name: "DarwinModelStore", descriptors: [
+                ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,
+                ModelPropertyProxy.descriptor, ModelFetchProxy.descriptor, ModelPredicateProxy.descriptor,
+                ModelExpressionProxy.descriptor, ModelRecordProxy.descriptor, ModelResultsProxy.descriptor,
+                ModelBatchProxy.descriptor, ModelStoreCallbackProxy.descriptor, ModelStoreDelegateProxy.descriptor,
+            ]),
         ]
     }
 

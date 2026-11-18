@@ -20,7 +20,10 @@ import Foundation
 /// directory is one of the app's own, named by its bundle identifier, so it
 /// doesn't write to the user's Documents or empty other apps' temporary
 /// files.
-struct FileLocations: Equatable {
+///
+/// The model store's stores (`stores`) are beside these directories, not in
+/// one, so the app's own files never meet them.
+public struct FileLocations: Equatable {
 
     /// The home directory: the container in a sandbox.
     var home: String
@@ -37,7 +40,7 @@ struct FileLocations: Equatable {
     var identifier: String
 
     /// This process's.
-    static func current(bundle: Bundle) -> FileLocations {
+    public static func current(bundle: Bundle) -> FileLocations {
         #if os(macOS)
         let sandboxed = ProcessInfo.processInfo.environment["APP_SANDBOX_CONTAINER_ID"] != nil
         #else
@@ -77,6 +80,17 @@ struct FileLocations: Equatable {
             directories[.bundle] = Self.trimmed(resources)
         }
         return directories
+    }
+
+    /// Where the model store keeps its stores: `Library/Stores` in a
+    /// sandbox, which is backed up and isn't a `FileDirectory`, and the
+    /// app's own `Stores` beside its `Documents` and `Data` outside one.
+    public var stores: String {
+        let home = Self.trimmed(home)
+        if sandboxed {
+            return home + "/Library/Stores"
+        }
+        return home + "/Library/Application Support/" + identifier + "/Stores"
     }
 
     private static func trimmed(_ path: String) -> String {

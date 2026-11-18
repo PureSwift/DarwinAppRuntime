@@ -100,6 +100,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinWebKit` | `WebContent` over `WKWebView`, and the `WebView` views (§5.3) |
 | `DarwinFiles` | `Files`: AppRuntime's `HostFiles` over the app container's directories (§5.4) |
 | `DarwinDefaults` | `Defaults`: AppRuntime's `HostDefaults` over a `UserDefaults` suite (§5.5) |
+| `DarwinModelStore` | `ModelStore`: AppRuntime's `HostModelStore` over CoreModel's Core Data store (§5.6) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -217,6 +218,7 @@ behavior. These rules apply across all of them:
 | `Surface` | OpenGLES (iOS), OpenGL (macOS) | §5.2. |
 | `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
 | `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
+| `ModelStore` | Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` | §5.6. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -368,6 +370,47 @@ store, `UserDefaultsStorage`:
 - `UserDefaults` keeps what's set across launches. Without a sandbox, the
   suite is in the user's `Library/Preferences`, named for the app as it
   is in a sandbox.
+
+### 5.6 Model store
+
+`DarwinModelStore` registers AppRuntime's `HostModelStore` for the model
+store's contracts (AppRuntime's `Documentation/Contracts/Persistence.md`).
+`HostModelStore` checks the guest's schemas, requests and records against
+the model, runs each store's operations in order off the main thread, and
+answers on the main queue, inside an autorelease pool. `DarwinModelStore`
+gives it the stores, `CoreDataStores`: each one CoreModel's Core Data store,
+an `NSPersistentContainer` on a SQLite file.
+
+| | In a sandbox | Without one (macOS) |
+|---|---|---|
+| A store | `Library/Stores/<name>/Store.sqlite` | `Library/Application Support/<bundle ID>/Stores/<name>/Store.sqlite` |
+
+- **Beside the file directories, not in one** (§5.4): the app's own files
+  can't reach a store, or make a folder that collides with one. `Library`
+  is backed up. On iOS the files are protected until the first unlock.
+- **Each store keeps its model.** An app's model is built at run time, and
+  Core Data migrates a store only from the model it was made with. So the
+  `Model` and indexes a store was opened with are kept in its metadata, as
+  JSON in the managed object model's version identifiers.
+- **Opening with another model** migrates the store with a mapping Core
+  Data infers, when AppRuntime's `canMigrate(from:to:)` says what the two
+  models share is the same: added and removed entities and properties.
+  Otherwise `open` fails with `migrationRequired`, or empties the store for
+  `.reset`. A store with no model in its metadata is treated the same way.
+- **Indexes** become Core Data fetch indexes.
+- **A file that isn't a store** is `corrupted`, and a full disk is
+  `outOfSpace`, when the store is opened.
+- **Opening a store again with the same model** shares its container.
+  Opening it with another, or destroying it, closes the one open before.
+
+What's CoreModel's, and so not the contract's yet:
+
+- Results without a sort, and objects that sort equal, come in Core
+  Data's order, not in order of their IDs.
+- An offset without a limit, and `IN` with a string (which the contract
+  reads as "is a substring of"), raise exceptions in Core Data.
+- A batch's changes are applied one after another, so one that fails
+  leaves those before it.
 
 ## 6. Built-in contracts
 
