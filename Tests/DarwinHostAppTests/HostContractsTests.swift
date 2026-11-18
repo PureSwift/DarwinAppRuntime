@@ -28,9 +28,10 @@ import Testing
     @Test func everyModuleIsInTheTable() {
         let names = Set(HostContracts.modules.map(\.name))
         for module in HostApp.modules {
-            let name = String(describing: module)
-            // `DarwinDeviceModule` is the module `DarwinDevice`.
-            let moduleName = name.hasSuffix("Module") ? String(name.dropLast("Module".count)) : name
+            // The Swift module the type is in: `DarwinDevice` for
+            // `DarwinDevice.DarwinDeviceModule`.
+            let name = String(reflecting: module)
+            let moduleName = String(name.prefix { $0 != "." })
             #expect(names.contains(moduleName), "\(name)")
         }
     }
