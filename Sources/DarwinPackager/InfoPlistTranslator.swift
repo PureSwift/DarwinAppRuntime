@@ -71,10 +71,20 @@ public struct InfoPlistTranslator {
         var files = [String: [String: String]]()
         for language in bundle.languages {
             let strings = try bundle.manifestStrings(language)
-            if strings == nil, bundle.displayNameKey == nil, bundle.capabilityUsage.isEmpty {
+            let localizedTypes = bundle.documentTypes.contains { $0.nameKey != nil }
+            if strings == nil, bundle.displayNameKey == nil, bundle.capabilityUsage.isEmpty, !localizedTypes {
                 continue
             }
-            let keys = try localizedKeys(strings ?? [:], language: language, includeName: true)
+            var keys = try localizedKeys(strings ?? [:], language: language, includeName: true)
+            // A document type's name is looked up by the development
+            // language's name, which `CFBundleTypeName` holds.
+            for type in bundle.documentTypes {
+                guard let key = type.nameKey else { continue }
+                guard let name = strings?[key] else {
+                    throw PackagerError("resources/\(language).lproj/Manifest.strings has no '\(key)', the name of the document type '\(type.name)'")
+                }
+                keys[type.name] = name
+            }
             if !keys.isEmpty {
                 files[language] = keys
             }
@@ -139,6 +149,7 @@ public struct InfoPlistTranslator {
             }
         }
         info.merge(try usageDescriptions()) { $1 }
+        info.merge(DocumentTypes.infoPlistKeys(bundle.documentTypes, bundleIdentifier: bundle.identifier, platform: platform)) { $1 }
         return info
     }
 
