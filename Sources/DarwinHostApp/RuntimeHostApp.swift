@@ -1,3 +1,4 @@
+import DarwinDocuments
 import DarwinHost
 import DarwinUI
 import SwiftUI
@@ -23,7 +24,13 @@ struct RuntimeHostApp: App {
         WindowGroup {
             HostRootView(session: session)
                 .onOpenURL { url in
-                    DarwinApplication.open(url)
+                    // A file the app is opened with is the user's document
+                    // (`Documents`); a link is the app's (`Application`).
+                    if url.isFileURL {
+                        DarwinDocuments.open([url])
+                    } else {
+                        DarwinApplication.open(url)
+                    }
                 }
         }
     }
