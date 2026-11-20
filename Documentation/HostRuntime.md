@@ -102,6 +102,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinDefaults` | `Defaults`: AppRuntime's `HostDefaults` over a `UserDefaults` suite (§5.5) |
 | `DarwinModelStore` | `ModelStore`: AppRuntime's `HostModelStore` over CoreModel's Core Data store (§5.6) |
 | `DarwinDocuments` | `Documents`: AppRuntime's `HostDocuments` over the platform's pickers and bookmarks (§5.7) |
+| `DarwinNotifications` | `Notifications` and `PushNotifications`: AppRuntime's `HostNotifications` over `UNUserNotificationCenter` and APNs (§5.8) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -221,6 +222,7 @@ behavior. These rules apply across all of them:
 | `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
 | `ModelStore` | Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` | §5.6. |
 | `Documents` | UIKit's document picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
+| `Notifications`, `PushNotifications` | UserNotifications, and APNs through the app delegate, through AppRuntime's `HostNotifications` | §5.8. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -460,6 +462,46 @@ The packager:
 Not done: iOS file coordination around reads and writes, which the
 contract's iOS notes ask for. `HostFiles` reads and writes with POSIX
 calls.
+
+### 5.8 Notifications
+
+`DarwinNotifications` registers AppRuntime's `HostNotifications` for the
+notifications contracts (AppRuntime's
+`Documentation/Contracts/Notifications.md`). `HostNotifications` checks
+each request, refuses one the user hasn't allowed, and keeps what the user
+did until the guest listens. `DarwinNotifications` gives it
+`UNUserNotificationCenter`, `DarwinNotificationCenter`:
+
+- **The system keeps and delivers** scheduled notifications, with the app
+  closed and after a restart. A moment becomes an interval from now, so a
+  change of time zone doesn't move it; calendar parts stay local time.
+- **A category's sound and interruption** go on each request, since Apple
+  has them per request. Its buttons are a `UNNotificationCategory`, which
+  the system keeps across launches. A button opens the app unless it's
+  `.background`.
+- **64 pending requests**, as iOS keeps; past them `add` fails with
+  `limitReached` where iOS would drop the request silently.
+- **The delegate.** The app delegate makes `DarwinNotificationCenter` the
+  center's delegate before the app finishes launching, so the response
+  that launched it reaches the guest. `willPresent` reports the
+  notification and answers with the guest's `foregroundPresentation`.
+- **Permission.** `Permissions.status(.notifications)` is the status the
+  center last read: at launch, whenever the app comes forward, and after
+  every request through either contract.
+- **Push.** `registerForRemoteNotifications` on `UIApplication` or
+  `NSApplication`; the app delegate hands the token, a failure, and a push
+  with data only to `DarwinNotifications`. The address is the token in
+  lowercase hex. It's the sandbox's in the Simulator, and where the
+  embedded provisioning profile says `aps-environment` is `development`.
+  A failure for want of the entitlement is `unsupported`, any other
+  `unavailable`. A new token while the app runs is a subscription change.
+- **`declaresRemote`** is `RTCapabilityOptions.notifications.remote`, and
+  the packager adds `aps-environment` for it, as before.
+
+Not done: `wakesApp` (`UIBackgroundModes: remote-notification`) and
+`.background` actions running the guest without a window, which wait on
+`BackgroundTasks`; and the time-sensitive entitlement, without which the
+system shows a time-sensitive notification as an active one.
 
 ## 6. Built-in contracts
 
