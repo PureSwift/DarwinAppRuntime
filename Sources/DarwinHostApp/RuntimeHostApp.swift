@@ -1,5 +1,6 @@
 import DarwinDocuments
 import DarwinHost
+import DarwinNotifications
 import DarwinUI
 import SwiftUI
 #if canImport(UIKit)
@@ -37,7 +38,9 @@ struct RuntimeHostApp: App {
 }
 
 /// Starts the guest once the app has finished launching, so it can
-/// already open windows and present prompts.
+/// already open windows and present prompts. Before that it becomes the
+/// notification delegate, so the response that launched the app isn't
+/// missed, and it hands the system's push token and data on.
 final class LaunchDelegate: NSObject {
 
     fileprivate func launched() {
@@ -50,14 +53,43 @@ extension LaunchDelegate: UIApplicationDelegate {
 
     func application(
         _ application: UIApplication,
+        willFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
+    ) -> Bool {
+        DarwinNotifications.attach()
+        return true
+    }
+
+    func application(
+        _ application: UIApplication,
         didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         launched()
         return true
     }
+
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        DarwinNotifications.registered(token)
+    }
+
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        DarwinNotifications.failedToRegister(error)
+    }
+
+    func application(
+        _ application: UIApplication,
+        didReceiveRemoteNotification payload: [AnyHashable: Any],
+        fetchCompletionHandler completion: @escaping (UIBackgroundFetchResult) -> Void
+    ) {
+        DarwinNotifications.receivedPush(payload)
+        completion(.noData)
+    }
 }
 #elseif canImport(AppKit)
 extension LaunchDelegate: NSApplicationDelegate {
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        DarwinNotifications.attach()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // An app launched from its executable (`darwin-app run`) starts as
@@ -69,6 +101,18 @@ extension LaunchDelegate: NSApplicationDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         true
+    }
+
+    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+        DarwinNotifications.registered(token)
+    }
+
+    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        DarwinNotifications.failedToRegister(error)
+    }
+
+    func application(_ application: NSApplication, didReceiveRemoteNotification payload: [String: Any]) {
+        DarwinNotifications.receivedPush(payload)
     }
 }
 #endif
