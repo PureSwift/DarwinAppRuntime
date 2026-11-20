@@ -60,6 +60,16 @@ public enum Capabilities {
                 sandboxEntitlements: ["com.apple.security.device.camera"]
             ),
             CapabilityRule(name: "notifications"),
+            // The user's own files, through the pickers (`DarwinDocuments`).
+            // It prompts for nothing; the sandbox needs to let the app at
+            // what the user picks, and keep bookmarks to it.
+            CapabilityRule(
+                name: "userFiles",
+                sandboxEntitlements: [
+                    "com.apple.security.files.user-selected.read-write",
+                    "com.apple.security.files.bookmarks.app-scope",
+                ]
+            ),
             // OpenGL ES 2.0: OpenGLES.framework on iOS, desktop OpenGL on
             // macOS (`DarwinGraphics`).
             CapabilityRule(name: "graphics", requiredDeviceCapability: "opengles-2"),
