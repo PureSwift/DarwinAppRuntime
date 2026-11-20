@@ -46,6 +46,7 @@ let package = Package(
         .library(name: "DarwinFiles", targets: ["DarwinFiles"]),
         .library(name: "DarwinDefaults", targets: ["DarwinDefaults"]),
         .library(name: "DarwinModelStore", targets: ["DarwinModelStore"]),
+        .library(name: "DarwinDocuments", targets: ["DarwinDocuments"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -174,6 +175,19 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Documents
+
+        // AppRuntime's `HostDocuments`, over the platform's pickers and
+        // bookmarks.
+        .target(
+            name: "DarwinDocuments",
+            dependencies: [
+                "DarwinHost", runtime("RuntimeHost"), runtime("RuntimeDocuments"),
+                runtime("DynamicDocuments"), runtime("DynamicFiles"),
+            ],
+            swiftSettings: host
+        ),
+
         // MARK: - App
 
         .target(
@@ -181,7 +195,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinUI", "DarwinGraphics", "DarwinWebKit",
-                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", runtime("RuntimeFormatting"), runtime("CRuntime"),
+                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", runtime("RuntimeFormatting"), runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -198,7 +212,7 @@ let package = Package(
                 runtime("DynamicMotion"), runtime("DynamicNFC"), runtime("DynamicDevice"),
                 runtime("DynamicNetworking"), runtime("DynamicFormatting"), runtime("DynamicUI"),
                 runtime("DynamicGraphics"), runtime("DynamicWebKit"), runtime("DynamicFiles"),
-                runtime("DynamicDefaults"), runtime("DynamicCoreModel"),
+                runtime("DynamicDefaults"), runtime("DynamicCoreModel"), runtime("DynamicDocuments"),
             ]
         ),
         .executableTarget(
@@ -224,6 +238,7 @@ let package = Package(
         .testTarget(name: "DarwinFilesTests", dependencies: ["DarwinFiles"], swiftSettings: host),
         .testTarget(name: "DarwinDefaultsTests", dependencies: ["DarwinDefaults"], swiftSettings: host),
         .testTarget(name: "DarwinModelStoreTests", dependencies: ["DarwinModelStore", runtime("RuntimeNative")], swiftSettings: host),
+        .testTarget(name: "DarwinDocumentsTests", dependencies: ["DarwinDocuments"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]
