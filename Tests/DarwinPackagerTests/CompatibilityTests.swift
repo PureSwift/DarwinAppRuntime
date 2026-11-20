@@ -138,6 +138,8 @@ import Testing
         #expect(macos["org.pureswift.data.Defaults"] != nil)
         #expect(ios["org.pureswift.data.ModelStore"] != nil)
         #expect(macos["org.pureswift.data.ModelStore"] != nil)
+        #expect(ios["org.pureswift.documents.Documents"] != nil)
+        #expect(macos["org.pureswift.documents.Documents"] != nil)
         #expect(macos["org.pureswift.runtime.Bundle"] != nil)
         #expect(ios.count == macos.count + 5)
     }
