@@ -85,6 +85,9 @@ public struct UniversalBundle {
     /// `RTIcon`: the icon's path in the bundle.
     public let icon: String?
 
+    /// `RTDocumentTypes`: the kinds of file the app opens.
+    public let documentTypes: [DocumentTypeEntry]
+
     /// `RTPlatformExtras.apple`.
     public let apple: AppleExtras
 
@@ -158,6 +161,7 @@ public struct UniversalBundle {
         capabilityOptions = options
         displayNameKey = info["RTDisplayNameKey"] as? String
         icon = info["RTIcon"] as? String
+        documentTypes = DocumentTypeEntry.entries(info["RTDocumentTypes"])
         let extras = info["RTPlatformExtras"] as? [String: Any] ?? [:]
         apple = AppleExtras(extras["apple"] as? [String: Any] ?? [:])
     }
