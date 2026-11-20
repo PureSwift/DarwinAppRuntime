@@ -101,6 +101,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinFiles` | `Files`: AppRuntime's `HostFiles` over the app container's directories (§5.4) |
 | `DarwinDefaults` | `Defaults`: AppRuntime's `HostDefaults` over a `UserDefaults` suite (§5.5) |
 | `DarwinModelStore` | `ModelStore`: AppRuntime's `HostModelStore` over CoreModel's Core Data store (§5.6) |
+| `DarwinDocuments` | `Documents`: AppRuntime's `HostDocuments` over the platform's pickers and bookmarks (§5.7) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -219,6 +220,7 @@ behavior. These rules apply across all of them:
 | `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
 | `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
 | `ModelStore` | Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` | §5.6. |
+| `Documents` | UIKit's document picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -411,6 +413,53 @@ What's CoreModel's, and so not the contract's yet:
   reads as "is a substring of"), raise exceptions in Core Data.
 - A batch's changes are applied one after another, so one that fails
   leaves those before it.
+
+### 5.7 Documents
+
+`DarwinDocuments` registers AppRuntime's `HostDocuments` for the documents
+contracts (AppRuntime's `Documentation/Contracts/Documents.md`).
+`HostDocuments` makes each document the user gives a grant in `HostFiles`,
+so the guest's `FileManager` reaches it, ends the grant when the guest
+lets go, and shows one picker at a time. `DarwinDocuments` gives it the
+pickers and bookmarks, `DarwinPickers`:
+
+| | iOS | macOS |
+|---|---|---|
+| Open | `UIDocumentPickerViewController(forOpeningContentTypes:asCopy: false)`: the file where it is | `NSOpenPanel`, as a sheet on the app's window |
+| Folder | the same, for `.folder` | `NSOpenPanel` choosing directories |
+| Save | `forExporting:asCopy: false` on a copy the host makes, which moves the copy where the user says and gives its URL back | `NSSavePanel`, then `HostFiles.copy(file:to:)` over what's there |
+| Bookmark | `bookmarkData()` | an app-scoped security bookmark |
+
+- **Types.** The wire's MIME types, groups and extensions become
+  `UTType`s. A type the system doesn't know is a dynamic one for its tag;
+  one that isn't any of the three forms widens the picker to any file.
+- **Security scopes.** A picked URL's scope starts when it's handed to
+  `HostDocuments`, and stops when the guest lets go of the document.
+- **Writable** is what the app asked for, where the file allows it. A
+  file the app is opened with is as writable as the file is.
+- **Bookmarks** are kept in the host's standard defaults, under
+  `RTDocumentBookmarks`, by a UUID the guest holds: not in the guest's
+  `Defaults` suite, which the app can read and clear. A stale one is made
+  again when it's resolved. A bookmark whose file is gone is `notFound`;
+  one that no longer resolves is `notPermitted`.
+- **Opened with a file.** The app's `onOpenURL` hands a file URL to
+  `DarwinDocuments.open`, and a link to `Application` as before.
+
+The packager:
+
+- **`userFiles`** adds `com.apple.security.files.user-selected.read-write`
+  and `com.apple.security.files.bookmarks.app-scope` to a macOS app's
+  sandbox. It adds nothing on iOS, and prompts for nothing.
+- **`RTDocumentTypes`** becomes `CFBundleDocumentTypes`, with the role and
+  `LSHandlerRank` `Alternate`, so the app is offered for those files
+  without claiming them. On iOS, `LSSupportsOpeningDocumentsInPlace` too. A
+  type the system doesn't know is declared in `UTImportedTypeDeclarations`
+  as `<bundle ID>.type.<tag>`. A localized type name goes in
+  `InfoPlist.strings`, keyed by the development language's name.
+
+Not done: iOS file coordination around reads and writes, which the
+contract's iOS notes ask for. `HostFiles` reads and writes with POSIX
+calls.
 
 ## 6. Built-in contracts
 
