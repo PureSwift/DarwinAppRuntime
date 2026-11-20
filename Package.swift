@@ -47,6 +47,7 @@ let package = Package(
         .library(name: "DarwinDefaults", targets: ["DarwinDefaults"]),
         .library(name: "DarwinModelStore", targets: ["DarwinModelStore"]),
         .library(name: "DarwinDocuments", targets: ["DarwinDocuments"]),
+        .library(name: "DarwinNotifications", targets: ["DarwinNotifications"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -188,6 +189,19 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Notifications
+
+        // The notifications contracts: AppRuntime's `HostNotifications`
+        // over `UNUserNotificationCenter`, and push through APNs.
+        .target(
+            name: "DarwinNotifications",
+            dependencies: [
+                "DarwinHost", runtime("RuntimeHost"), runtime("RuntimeNotifications"),
+                runtime("DynamicNotifications"),
+            ],
+            swiftSettings: host
+        ),
+
         // MARK: - App
 
         .target(
@@ -195,7 +209,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinUI", "DarwinGraphics", "DarwinWebKit",
-                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", runtime("RuntimeFormatting"), runtime("CRuntime"),
+                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", runtime("RuntimeFormatting"), runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -213,6 +227,7 @@ let package = Package(
                 runtime("DynamicNetworking"), runtime("DynamicFormatting"), runtime("DynamicUI"),
                 runtime("DynamicGraphics"), runtime("DynamicWebKit"), runtime("DynamicFiles"),
                 runtime("DynamicDefaults"), runtime("DynamicCoreModel"), runtime("DynamicDocuments"),
+                runtime("DynamicNotifications"),
             ]
         ),
         .executableTarget(
@@ -239,6 +254,7 @@ let package = Package(
         .testTarget(name: "DarwinDefaultsTests", dependencies: ["DarwinDefaults"], swiftSettings: host),
         .testTarget(name: "DarwinModelStoreTests", dependencies: ["DarwinModelStore", runtime("RuntimeNative")], swiftSettings: host),
         .testTarget(name: "DarwinDocumentsTests", dependencies: ["DarwinDocuments"], swiftSettings: host),
+        .testTarget(name: "DarwinNotificationsTests", dependencies: ["DarwinNotifications", runtime("RuntimeNative")], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]
