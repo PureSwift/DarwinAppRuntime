@@ -88,6 +88,9 @@ public struct UniversalBundle {
     /// `RTDocumentTypes`: the kinds of file the app opens.
     public let documentTypes: [DocumentTypeEntry]
 
+    /// `RTBackgroundTasks`: the tasks the system may run, in order.
+    public let backgroundTasks: [BackgroundTaskEntry]
+
     /// `RTPlatformExtras.apple`.
     public let apple: AppleExtras
 
@@ -162,8 +165,33 @@ public struct UniversalBundle {
         displayNameKey = info["RTDisplayNameKey"] as? String
         icon = info["RTIcon"] as? String
         documentTypes = DocumentTypeEntry.entries(info["RTDocumentTypes"])
+        backgroundTasks = BackgroundTaskEntry.entries(info["RTBackgroundTasks"])
         let extras = info["RTPlatformExtras"] as? [String: Any] ?? [:]
         apple = AppleExtras(extras["apple"] as? [String: Any] ?? [:])
+    }
+}
+
+/// A task the system may run (`backgroundTasks:` in `App.swift`).
+public struct BackgroundTaskEntry: Equatable, Sendable {
+
+    public var identifier: String
+
+    /// `refresh` or `processing`.
+    public var kind: String
+
+    public init(identifier: String, kind: String) {
+        self.identifier = identifier
+        self.kind = kind
+    }
+
+    /// `RTBackgroundTasks`: each an `Identifier` and a `Kind`.
+    static func entries(_ value: Any?) -> [BackgroundTaskEntry] {
+        (value as? [[String: Any]] ?? []).compactMap { entry in
+            guard let identifier = entry["Identifier"] as? String, let kind = entry["Kind"] as? String else {
+                return nil
+            }
+            return BackgroundTaskEntry(identifier: identifier, kind: kind)
+        }
     }
 }
 

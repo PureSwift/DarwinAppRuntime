@@ -1,3 +1,4 @@
+import DarwinBackgroundTasks
 import DarwinBluetooth
 import DarwinDefaults
 import DarwinDevice
@@ -46,6 +47,7 @@ public enum HostApp {
             DarwinDocuments.self,
             DarwinNotifications.self,
             DarwinMedia.self,
+            DarwinBackgroundTasks.self,
         ]
     }
 

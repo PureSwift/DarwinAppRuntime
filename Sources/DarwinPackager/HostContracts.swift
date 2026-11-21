@@ -1,3 +1,4 @@
+import DynamicBackgroundTasks
 import DynamicBluetooth
 import DynamicCoreModel
 import DynamicDefaults
@@ -108,6 +109,9 @@ public enum HostContracts {
                 NotificationsProxy.descriptor, NotificationRecordProxy.descriptor,
                 NotificationCallbackProxy.descriptor, NotificationsDelegateProxy.descriptor,
                 PushNotificationsProxy.descriptor, PushCallbackProxy.descriptor, PushDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinBackgroundTasks", descriptors: [
+                BackgroundTasksProxy.descriptor, BackgroundTasksDelegateProxy.descriptor, BackgroundCallbackProxy.descriptor,
             ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [

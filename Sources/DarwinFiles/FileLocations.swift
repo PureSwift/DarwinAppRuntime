@@ -93,6 +93,18 @@ public struct FileLocations: Equatable {
         return home + "/Library/Application Support/" + identifier + "/Stores"
     }
 
+    /// The host's own files about the app, such as the background requests
+    /// it remembers: `Library/Host` in a sandbox, and the app's own `Host`
+    /// beside its `Documents` and `Data` outside one. Not a
+    /// `FileDirectory`, so the guest never reaches them.
+    public var host: String {
+        let home = Self.trimmed(home)
+        if sandboxed {
+            return home + "/Library/Host"
+        }
+        return home + "/Library/Application Support/" + identifier + "/Host"
+    }
+
     private static func trimmed(_ path: String) -> String {
         var path = path
         while path.count > 1, path.hasSuffix("/") {

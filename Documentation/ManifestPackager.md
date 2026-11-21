@@ -279,8 +279,9 @@ host runtime.
 | `network` | — (App Transport Security defaults) | — | sandbox: `com.apple.security.network.client` |
 | `localNetwork` | `NSLocalNetworkUsageDescription`, `NSBonjourServices` from extras | — | — |
 | `camera` | `NSCameraUsageDescription` | — | `NSCameraUsageDescription`; sandbox: `com.apple.security.device.camera` |
-| `notifications` | — | `aps-environment` when remote | `com.apple.developer.aps-environment` |
+| `notifications` | `UIBackgroundModes: remote-notification` with `wakesApp` | `aps-environment` when remote | `com.apple.developer.aps-environment` |
 | `audio` | `UIBackgroundModes: audio` with `background` | — | — (a Mac app isn't suspended) |
+| `backgroundTasks` | `BGTaskSchedulerPermittedIdentifiers` from the manifest's tasks; `UIBackgroundModes` with `fetch` for a refresh task and `processing` for a processing task | — | — |
 | `graphics(.gles2)` | `opengles-2` when required | — | — (desktop OpenGL runs GLES 2.0; `HostRuntime.md` §5.2) |
 
 - **Required or optional.** A capability is optional unless the manifest
@@ -291,7 +292,9 @@ host runtime.
   packages; its contract reports unavailable at run time.
 - **macOS sandbox.** macOS apps are always sandboxed (`com.apple.security.app-sandbox`),
   as the Mac App Store requires.
-- **Background modes.** `audio` is generated for `.audio(background: true)`.
+- **Background modes.** `audio` is generated for `.audio(background: true)`;
+  `fetch` and `processing` for the manifest's background tasks; and
+  `remote-notification` for `.notifications(remote: true, wakesApp: true)`.
   Apps that need another declare it in `apple.extraInfoPlist`'s
   `UIBackgroundModes`, which is added to the generated ones, until the
   contracts support it (`HostRuntime.md` §11).
