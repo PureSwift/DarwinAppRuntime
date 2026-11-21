@@ -82,6 +82,31 @@ import Testing
         #expect(both["UIBackgroundModes"] as? [String] == ["audio", "location"])
     }
 
+    @Test func runsTasksInTheBackground() throws {
+        let fixture = FixtureBundle().with([
+            "RTCapabilities": ["backgroundTasks", "notifications"],
+            "RTCapabilityOptions": ["notifications": ["remote": "true", "wakesApp": "true"]],
+            "RTBackgroundTasks": [
+                ["Identifier": "org.example.mail.sync", "Kind": "refresh"],
+                ["Identifier": "org.example.mail.index", "Kind": "processing"],
+            ],
+        ])
+        let ios = try translator(fixture, .ios).infoPlist(sdk: nil)
+        #expect(ios["BGTaskSchedulerPermittedIdentifiers"] as? [String] == ["org.example.mail.sync", "org.example.mail.index"])
+        #expect(ios["UIBackgroundModes"] as? [String] == ["fetch", "processing", "remote-notification"])
+        // Nothing starts a closed Mac app.
+        let macos = try translator(fixture, .macos).infoPlist(sdk: nil)
+        #expect(macos["BGTaskSchedulerPermittedIdentifiers"] == nil)
+        #expect(macos["UIBackgroundModes"] == nil)
+        // A refresh task alone, and a push that doesn't wake the app.
+        let refresh = try translator(FixtureBundle().with([
+            "RTCapabilities": ["backgroundTasks", "notifications"],
+            "RTCapabilityOptions": ["notifications": ["remote": "true"]],
+            "RTBackgroundTasks": [["Identifier": "org.example.mail.sync", "Kind": "refresh"]],
+        ]), .ios).infoPlist(sdk: nil)
+        #expect(refresh["UIBackgroundModes"] as? [String] == ["fetch"])
+    }
+
     @Test func mergesExtrasLast() throws {
         let fixture = FixtureBundle().with(["RTPlatformExtras": ["apple": ["extraInfoPlist": [
             "UIBackgroundModes": ["bluetooth-central"],
