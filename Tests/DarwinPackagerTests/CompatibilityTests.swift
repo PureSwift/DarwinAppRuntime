@@ -142,6 +142,8 @@ import Testing
         #expect(macos["org.pureswift.documents.Documents"] != nil)
         #expect(ios["org.pureswift.notifications.Notifications"] != nil)
         #expect(macos["org.pureswift.notifications.Push"] != nil)
+        #expect(ios["org.pureswift.media.Playback"] != nil)
+        #expect(macos["org.pureswift.media.PlaybackDelegate"] != nil)
         #expect(macos["org.pureswift.runtime.Bundle"] != nil)
         #expect(ios.count == macos.count + 5)
     }
