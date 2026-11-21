@@ -1,3 +1,4 @@
+import DarwinBackgroundTasks
 import DarwinDocuments
 import DarwinHost
 import DarwinNotifications
@@ -40,7 +41,11 @@ struct RuntimeHostApp: App {
 /// Starts the guest once the app has finished launching, so it can
 /// already open windows and present prompts. Before that it becomes the
 /// notification delegate, so the response that launched the app isn't
-/// missed, and it hands the system's push token and data on.
+/// missed, and on iOS it registers the background tasks' launch handlers,
+/// as the system requires. It hands the system's push token and data on.
+///
+/// A launch in the background, to run a task or for a push, starts the
+/// guest the same way; its renderer waits for a window.
 final class LaunchDelegate: NSObject {
 
     fileprivate func launched() {
@@ -56,6 +61,7 @@ extension LaunchDelegate: UIApplicationDelegate {
         willFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         DarwinNotifications.attach()
+        DarwinBackgroundTasks.registerLaunchHandlers()
         return true
     }
 
@@ -80,6 +86,8 @@ extension LaunchDelegate: UIApplicationDelegate {
         didReceiveRemoteNotification payload: [AnyHashable: Any],
         fetchCompletionHandler completion: @escaping (UIBackgroundFetchResult) -> Void
     ) {
+        // The guest has heard by now. To fetch what the push announced it
+        // begins an activity, which holds the app past this.
         DarwinNotifications.receivedPush(payload)
         completion(.noData)
     }
