@@ -235,6 +235,7 @@ behavior. These rules apply across all of them:
 | `TextStorage` | UIKit's and AppKit's text views, through AppRuntime's `HostTextStorage` | §5.12. |
 | `Secrets` | Security (Keychain Services), through AppRuntime's `HostSecrets` | §5.13. |
 | `WebAuthentication` | AuthenticationServices, through AppRuntime's `HostWebAuthentication` | §5.13. |
+| `Contacts` | Contacts (`CNContactStore`), through AppRuntime's `HostContacts` | §5.14. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -742,6 +743,48 @@ The packager accepts `.secrets`, which needs no entitlement on a signed
 app. A Simulator build gets the identifier the Simulator's Keychain wants
 linked into its executable (`ManifestPackager.md`, step 7). A scheme needs
 nothing in `Info.plist`: the session is given it when it starts.
+
+### 5.14 Contacts
+
+`DarwinContacts` registers `HostContacts` (`Documentation/Contracts/Contacts.md`),
+which checks access before every call, refuses a write by an app that
+declared reading alone (`RTCapabilityOptions.contacts.access` is
+`readOnly`), refuses a contact with nothing in it, runs the directory off
+the main thread in order, and gathers a burst of changes into one. Its
+directory, `SystemAddressBook`, is the user's address book through
+`CNContactStore`:
+
+- **Everyone** comes from `enumerateContacts`, as unified people, with
+  `sortOrder = .userDefault`: by family or given name, as the user set
+  it.
+- **A name** is `CNContactFormatter`'s `.fullName`. Without one, it's the
+  organization, then an email address, then a phone number.
+- **A search** is `predicateForContacts(matchingName:)`, the system's own,
+  and then whoever has an email address that starts with the text.
+- **A save** is a `CNSaveRequest`. A new person goes to the default
+  account. A change is made on the person as fetched, so what a `Contact`
+  doesn't carry, such as the photo and the note, is kept. A value that's
+  there already with the same label and text is kept as it is, with its
+  identifier and the platform's own label.
+- **Labels:** the eight the contract names are `CNLabelHome` and its
+  neighbours, both ways. The system's others, such as `iPhone`, reach the
+  guest as the system's word for them. The user's own are their text.
+- **Notes** need an entitlement Apple grants on request, so they're never
+  fetched.
+- **Errors:** `CNError` codes become `notAuthorized`, `notFound`,
+  `readOnly` (a record or account that can't be written) and
+  `invalidContact` (a validation error); anything else is `unknown`.
+
+Access is `CNContactStore.authorizationStatus(for: .contacts)`, iOS 18's
+`.limited` included, and the question is `requestAccess(for:)`. The app
+reads the status again when it becomes active, as the user may have
+changed it in Settings; when it changed, the guest is told the store did.
+`CNContactStoreDidChange` is `storeChanged`.
+
+The packager accepts `.contacts`, with `NSContactsUsageDescription` on
+both platforms, and the macOS sandbox's
+`com.apple.security.personal-information.addressbook`. `.readOnly`
+changes nothing there: the host refuses the writes.
 
 ## 6. Built-in contracts
 
