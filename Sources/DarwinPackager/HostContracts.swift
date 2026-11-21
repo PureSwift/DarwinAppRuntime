@@ -1,3 +1,4 @@
+import DynamicAuthentication
 import DynamicBackgroundTasks
 import DynamicBluetooth
 import DynamicClipboard
@@ -15,6 +16,7 @@ import DynamicNFC
 import DynamicNotifications
 import DynamicNetworking
 import DynamicRuntime
+import DynamicSecrets
 import DynamicText
 import DynamicUI
 import DynamicWebKit
@@ -118,6 +120,10 @@ public enum HostContracts {
             Module(name: "DarwinClipboard", descriptors: [ClipboardProxy.descriptor, ClipboardCallbackProxy.descriptor]),
             Module(name: "DarwinText", descriptors: [
                 TextStorageProxy.descriptor, TextStorageDelegateProxy.descriptor, TextCallbackProxy.descriptor,
+            ]),
+            Module(name: "DarwinSecrets", descriptors: [SecretsProxy.descriptor, SecretCallbackProxy.descriptor]),
+            Module(name: "DarwinAuthentication", descriptors: [
+                WebAuthenticationProxy.descriptor, WebAuthenticationCallbackProxy.descriptor,
             ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [

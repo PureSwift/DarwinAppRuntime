@@ -67,6 +67,9 @@ public enum Capabilities {
             // Work the system runs in the background (`DarwinBackgroundTasks`).
             // It prompts for nothing.
             CapabilityRule(name: "backgroundTasks"),
+            // Secrets in the Keychain (`DarwinSecrets`). It prompts for
+            // nothing, and the app's own items need no entitlement.
+            CapabilityRule(name: "secrets"),
             // The user's own files, through the pickers (`DarwinDocuments`).
             // It prompts for nothing; the sandbox needs to let the app at
             // what the user picks, and keep bookmarks to it.

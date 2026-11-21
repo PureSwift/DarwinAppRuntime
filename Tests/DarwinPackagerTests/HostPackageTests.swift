@@ -12,6 +12,16 @@ import Testing
         sdkVersion: "27.2"
     )
 
+    @Test func linksTheSimulatorsEntitlements() {
+        var package = Self.package
+        #expect(!package.manifest.contains("__entitlements"))
+        package.simulatedEntitlements = URL(fileURLWithPath: "/work/Simulated.entitlements")
+        let manifest = package.manifest
+        for flag in ["\"-sectcreate\",", "\"__TEXT\",", "\"__entitlements\",", "\"/work/Simulated.entitlements\","] {
+            #expect(manifest.contains(flag), "\(flag)")
+        }
+    }
+
     @Test func writesTheManifest() {
         #expect(Self.package.manifest == """
             // swift-tools-version:6.0

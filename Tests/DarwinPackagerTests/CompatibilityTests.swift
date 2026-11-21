@@ -89,6 +89,14 @@ import Testing
         #expect(try check(fixture, .ios) == [.error("capability 'telepathy' isn't supported by this host")])
     }
 
+    @Test func acceptsCapabilitiesThatPromptForNothing() throws {
+        let fixture = FixtureBundle().with([
+            "RTCapabilities": ["secrets", "audio", "backgroundTasks"], "RTContracts": [], "RTCapabilityUsage": nil,
+        ])
+        #expect(try check(fixture, .ios) == [])
+        #expect(try check(fixture, .macos) == [])
+    }
+
     @Test func acceptsGLES2() throws {
         let gles2 = FixtureBundle().with([
             "RTCapabilities": ["graphics"], "RTContracts": [], "RTCapabilityUsage": nil,
@@ -146,6 +154,8 @@ import Testing
         #expect(ios["org.pureswift.background.Tasks"] != nil)
         #expect(ios["org.pureswift.clipboard.Clipboard"] != nil)
         #expect(ios["org.pureswift.text.Storage"] != nil)
+        #expect(ios["org.pureswift.secrets.Secrets"] != nil)
+        #expect(macos["org.pureswift.authentication.WebAuthentication"] != nil)
         #expect(macos["org.pureswift.text.Callback"] != nil)
         #expect(macos["org.pureswift.clipboard.Callback"] != nil)
         #expect(macos["org.pureswift.background.Callback"] != nil)
