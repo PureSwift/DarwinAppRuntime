@@ -147,6 +147,10 @@ public struct InfoPlistTranslator {
             if !required.isEmpty {
                 info["UIRequiredDeviceCapabilities"] = required
             }
+            let modes = Capabilities.backgroundModes(bundle.capabilities.sorted(), options: bundle.capabilityOptions, platform: platform)
+            if !modes.isEmpty {
+                info["UIBackgroundModes"] = modes
+            }
         }
         info.merge(try usageDescriptions()) { $1 }
         info.merge(DocumentTypes.infoPlistKeys(bundle.documentTypes, bundleIdentifier: bundle.identifier, platform: platform)) { $1 }
@@ -157,17 +161,22 @@ public struct InfoPlistTranslator {
     /// `actool`, then `apple.extraInfoPlist`.
     ///
     /// An extra key that replaces a generated one is an error, except the
-    /// defaults in `overridableKeys`.
+    /// defaults in `overridableKeys`. Extra `UIBackgroundModes` are added
+    /// to the generated ones.
     public func infoPlist(sdk: SDKInfo?, iconKeys: [String: Any] = [:]) throws -> [String: Any] {
         var info = try generatedKeys(sdk: sdk)
         info.merge(iconKeys) { $1 }
-        let conflicts = bundle.apple.extraInfoPlist.keys
-            .filter { info[$0] != nil && !Self.overridableKeys.contains($0) }
+        var extras = bundle.apple.extraInfoPlist
+        if let generated = info["UIBackgroundModes"] as? [String], let extra = extras["UIBackgroundModes"] as? [String] {
+            extras["UIBackgroundModes"] = generated + extra.filter { !generated.contains($0) }
+        }
+        let conflicts = extras.keys
+            .filter { info[$0] != nil && !Self.overridableKeys.contains($0) && $0 != "UIBackgroundModes" }
             .sorted()
         if !conflicts.isEmpty {
             throw PackagerError("apple.extraInfoPlist sets keys the packager generates: \(conflicts.joined(separator: ", "))")
         }
-        info.merge(bundle.apple.extraInfoPlist) { $1 }
+        info.merge(extras) { $1 }
         return info
     }
 }

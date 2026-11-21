@@ -48,6 +48,7 @@ let package = Package(
         .library(name: "DarwinModelStore", targets: ["DarwinModelStore"]),
         .library(name: "DarwinDocuments", targets: ["DarwinDocuments"]),
         .library(name: "DarwinNotifications", targets: ["DarwinNotifications"]),
+        .library(name: "DarwinMedia", targets: ["DarwinMedia"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -202,6 +203,20 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Media
+
+        // The media contracts: AppRuntime's `HostMediaPlayback` over
+        // `AVPlayer`, what's playing in `MPNowPlayingInfoCenter`, and the
+        // `VideoPlayer` node's view.
+        .target(
+            name: "DarwinMedia",
+            dependencies: [
+                "DarwinHost", "DarwinUI", "DarwinFiles", runtime("RuntimeMedia"), runtime("DynamicMedia"),
+                runtime("RuntimeNative"),
+            ],
+            swiftSettings: host
+        ),
+
         // MARK: - App
 
         .target(
@@ -209,7 +224,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinUI", "DarwinGraphics", "DarwinWebKit",
-                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", runtime("RuntimeFormatting"), runtime("CRuntime"),
+                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", "DarwinMedia", runtime("RuntimeFormatting"), runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -227,7 +242,7 @@ let package = Package(
                 runtime("DynamicNetworking"), runtime("DynamicFormatting"), runtime("DynamicUI"),
                 runtime("DynamicGraphics"), runtime("DynamicWebKit"), runtime("DynamicFiles"),
                 runtime("DynamicDefaults"), runtime("DynamicCoreModel"), runtime("DynamicDocuments"),
-                runtime("DynamicNotifications"),
+                runtime("DynamicNotifications"), runtime("DynamicMedia"),
             ]
         ),
         .executableTarget(
@@ -255,6 +270,7 @@ let package = Package(
         .testTarget(name: "DarwinModelStoreTests", dependencies: ["DarwinModelStore", runtime("RuntimeNative")], swiftSettings: host),
         .testTarget(name: "DarwinDocumentsTests", dependencies: ["DarwinDocuments"], swiftSettings: host),
         .testTarget(name: "DarwinNotificationsTests", dependencies: ["DarwinNotifications", runtime("RuntimeNative")], swiftSettings: host),
+        .testTarget(name: "DarwinMediaTests", dependencies: ["DarwinMedia"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]

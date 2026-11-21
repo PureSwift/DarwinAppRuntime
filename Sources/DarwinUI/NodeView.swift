@@ -49,6 +49,9 @@ struct NodeView: View {
         case "GLSurface":
             return GLSurfaceViews.view(props["surface"])
 
+        case "VideoPlayer":
+            return VideoPlayers.view(props)
+
         case "VStack":
             return AnyView(VStack(alignment: Styles.horizontal(props["alignment"]), spacing: Styles.length(props["spacing"])) {
                 children

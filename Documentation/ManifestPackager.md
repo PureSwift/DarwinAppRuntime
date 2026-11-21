@@ -132,6 +132,8 @@ writes them:
   `.localNetwork(usage:)` (§4.1);
 - `.required()` on a capability (§4.1), the option `required`;
 - `.notifications(remote: true)`, the option `remote`, for `aps-environment`;
+- `.audio(background: true)`, the option `background`, for
+  `UIBackgroundModes: audio`;
 - `apple: .init(privacy: […])`, the app's data collection and tracking
   (§6).
 
@@ -278,6 +280,7 @@ host runtime.
 | `localNetwork` | `NSLocalNetworkUsageDescription`, `NSBonjourServices` from extras | — | — |
 | `camera` | `NSCameraUsageDescription` | — | `NSCameraUsageDescription`; sandbox: `com.apple.security.device.camera` |
 | `notifications` | — | `aps-environment` when remote | `com.apple.developer.aps-environment` |
+| `audio` | `UIBackgroundModes: audio` with `background` | — | — (a Mac app isn't suspended) |
 | `graphics(.gles2)` | `opengles-2` when required | — | — (desktop OpenGL runs GLES 2.0; `HostRuntime.md` §5.2) |
 
 - **Required or optional.** A capability is optional unless the manifest
@@ -288,9 +291,10 @@ host runtime.
   packages; its contract reports unavailable at run time.
 - **macOS sandbox.** macOS apps are always sandboxed (`com.apple.security.app-sandbox`),
   as the Mac App Store requires.
-- **Background modes** are not generated. Apps that need them declare
-  `UIBackgroundModes` in `apple.extraInfoPlist` until the contracts support
-  background operation (`HostRuntime.md` §11).
+- **Background modes.** `audio` is generated for `.audio(background: true)`.
+  Apps that need another declare it in `apple.extraInfoPlist`'s
+  `UIBackgroundModes`, which is added to the generated ones, until the
+  contracts support it (`HostRuntime.md` §11).
 
 ### 4.2 Strings
 

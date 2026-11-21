@@ -7,6 +7,7 @@ import DynamicFiles
 import DynamicFormatting
 import DynamicGraphics
 import DynamicLocation
+import DynamicMedia
 import DynamicMotion
 import DynamicNFC
 import DynamicNotifications
@@ -108,6 +109,7 @@ public enum HostContracts {
                 NotificationCallbackProxy.descriptor, NotificationsDelegateProxy.descriptor,
                 PushNotificationsProxy.descriptor, PushCallbackProxy.descriptor, PushDelegateProxy.descriptor,
             ]),
+            Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
                 ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,
                 ModelPropertyProxy.descriptor, ModelFetchProxy.descriptor, ModelPredicateProxy.descriptor,

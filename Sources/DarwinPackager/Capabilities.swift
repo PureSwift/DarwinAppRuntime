@@ -60,6 +60,10 @@ public enum Capabilities {
                 sandboxEntitlements: ["com.apple.security.device.camera"]
             ),
             CapabilityRule(name: "notifications"),
+            // Sound and pictures through the media players (`DarwinMedia`).
+            // It prompts for nothing; `background` plays on when the app
+            // leaves the front.
+            CapabilityRule(name: "audio"),
             // The user's own files, through the pickers (`DarwinDocuments`).
             // It prompts for nothing; the sandbox needs to let the app at
             // what the user picks, and keep bookmarks to it.
@@ -113,6 +117,18 @@ public enum Capabilities {
     /// optional by default.
     public static func isRequired(_ options: [String: String]) -> Bool {
         options["required"] == "true"
+    }
+
+    /// `UIBackgroundModes` on iOS: `audio` for `.audio(background: true)`
+    /// (`RTCapabilityOptions.audio.background`). A Mac app isn't
+    /// suspended, so it needs none.
+    public static func backgroundModes(_ capabilities: [String], options: [String: [String: String]], platform: ApplePlatform) -> [String] {
+        guard !platform.isMac else { return [] }
+        var modes = [String]()
+        if capabilities.contains("audio"), options["audio"]?["background"] == "true" {
+            modes.append("audio")
+        }
+        return modes
     }
 
     /// Whether notifications include remote (push) ones, which need
