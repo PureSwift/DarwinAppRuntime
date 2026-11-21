@@ -43,6 +43,18 @@ public enum Entitlements {
         return entitlements
     }
 
+    /// What Xcode gives an app built for the Simulator: its identifier, and
+    /// a keychain group of the same name. Without them the Simulator's
+    /// Keychain refuses the app (`errSecMissingEntitlement`). They're linked
+    /// into the executable (`HostPackage.simulatedEntitlements`), not put in
+    /// the signature, where the Simulator won't launch them.
+    public static func simulated(_ bundle: UniversalBundle) -> [String: Any] {
+        [
+            "application-identifier": bundle.identifier,
+            "keychain-access-groups": [bundle.identifier],
+        ]
+    }
+
     /// Entitlements only a provisioning profile can grant. An ad hoc
     /// signed macOS app with one of them doesn't launch.
     public static func isRestricted(_ key: String) -> Bool {
