@@ -156,6 +156,8 @@ import Testing
         #expect(ios["org.pureswift.text.Storage"] != nil)
         #expect(ios["org.pureswift.secrets.Secrets"] != nil)
         #expect(macos["org.pureswift.authentication.WebAuthentication"] != nil)
+        #expect(ios["org.pureswift.contacts.Contacts"] != nil)
+        #expect(macos["org.pureswift.contacts.Delegate"] != nil)
         #expect(macos["org.pureswift.text.Callback"] != nil)
         #expect(macos["org.pureswift.clipboard.Callback"] != nil)
         #expect(macos["org.pureswift.background.Callback"] != nil)
