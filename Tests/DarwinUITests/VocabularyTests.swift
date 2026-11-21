@@ -261,6 +261,38 @@ struct VocabularyTests {
         #expect(asked == ["4 fill none", "5 - -"])
     }
 
+    @Test func textEditorsComeFromTheProvider() {
+        #expect(TextEditorViews.provider == nil, "nothing without DarwinText")
+        var asked: [TextEditorNode] = []
+        TextEditorViews.provider = { node in
+            asked.append(node)
+            return AnyView(EmptyView())
+        }
+        defer { TextEditorViews.provider = nil }
+        var reported: [Bool] = []
+        let focused = RenderNode("TextEditor", id: 1, props: ["buffer": .int(3), "editable": false, "wraps": false],
+                                 modifiers: [ModifierNode("focused", ["value": true])])
+        _ = TextEditorViews.view(focused) { reported.append($0) }
+        _ = TextEditorViews.view(RenderNode("TextEditor", id: 2, props: ["buffer": .int(4)])) { _ in }
+        _ = TextEditorViews.view(RenderNode("TextEditor", id: 3, props: ["buffer": "4"])) { _ in }
+        #expect(asked.map(\.buffer) == [3, 4])
+        #expect(asked.map(\.isEditable) == [false, true])
+        #expect(asked.map(\.wrapsLines) == [false, true])
+        #expect(asked.first?.focus?.value == true)
+        #expect(asked.last?.focus == nil)
+        asked.first?.focus?.report(false)
+        #expect(reported == [false])
+    }
+
+    @Test func fontsForTextViews() {
+        #expect(FontSpec().platformFont == nil, "the body font")
+        let sized = FontSpec(style: nil, size: 14, design: "monospaced", weight: nil, italic: nil).platformFont
+        #expect(sized?.pointSize == 14)
+        #expect(sized?.fontDescriptor.symbolicTraits.contains(.monoSpace) == true)
+        let bold = FontSpec(style: "headline", size: nil, design: nil, weight: "bold", italic: true).platformFont
+        #expect(bold?.fontDescriptor.symbolicTraits.contains(.italic) == true)
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
