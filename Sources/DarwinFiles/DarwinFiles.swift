@@ -27,9 +27,21 @@ public enum DarwinFiles: DarwinHost.HostModule {
         FileLocations.current(bundle: DarwinBundle.bundle).directories
     }
 
+    /// Whether `configure()` has run.
+    nonisolated(unsafe) private(set) static var isConfigured = false
+
+    /// Says where the app's files are, unless the module already has: for
+    /// another module that finds files through `HostFiles`, such as the
+    /// media player, in an app that doesn't use `Files` itself.
+    public static func configureIfNeeded() {
+        guard !isConfigured else { return }
+        configure()
+    }
+
     /// Makes the writable directories and empties `temporary`. If that
     /// fails, it's logged, and every operation fails with `notFound`.
     static func configure() {
+        isConfigured = true
         let configuration = HostFiles.Configuration(directories: directories(), deliver: { answer in
             DispatchQueue.main.async {
                 autoreleasepool(invoking: answer)
