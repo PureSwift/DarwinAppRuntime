@@ -50,6 +50,7 @@ let package = Package(
         .library(name: "DarwinNotifications", targets: ["DarwinNotifications"]),
         .library(name: "DarwinMedia", targets: ["DarwinMedia"]),
         .library(name: "DarwinBackgroundTasks", targets: ["DarwinBackgroundTasks"]),
+        .library(name: "DarwinClipboard", targets: ["DarwinClipboard"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -230,6 +231,16 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Clipboard
+
+        // The clipboard contract: AppRuntime's `HostClipboard` over
+        // `UIPasteboard` (iOS) and `NSPasteboard` (macOS).
+        .target(
+            name: "DarwinClipboard",
+            dependencies: ["DarwinHost", "DarwinFiles", runtime("RuntimeClipboard"), runtime("DynamicClipboard")],
+            swiftSettings: host
+        ),
+
         // MARK: - App
 
         .target(
@@ -237,7 +248,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinUI", "DarwinGraphics", "DarwinWebKit",
-                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", "DarwinMedia", "DarwinBackgroundTasks", runtime("RuntimeFormatting"), runtime("CRuntime"),
+                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", "DarwinMedia", "DarwinBackgroundTasks", "DarwinClipboard", runtime("RuntimeFormatting"), runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -256,6 +267,7 @@ let package = Package(
                 runtime("DynamicGraphics"), runtime("DynamicWebKit"), runtime("DynamicFiles"),
                 runtime("DynamicDefaults"), runtime("DynamicCoreModel"), runtime("DynamicDocuments"),
                 runtime("DynamicNotifications"), runtime("DynamicMedia"), runtime("DynamicBackgroundTasks"),
+                runtime("DynamicClipboard"),
             ]
         ),
         .executableTarget(
@@ -285,6 +297,7 @@ let package = Package(
         .testTarget(name: "DarwinNotificationsTests", dependencies: ["DarwinNotifications", runtime("RuntimeNative")], swiftSettings: host),
         .testTarget(name: "DarwinMediaTests", dependencies: ["DarwinMedia"], swiftSettings: host),
         .testTarget(name: "DarwinBackgroundTasksTests", dependencies: ["DarwinBackgroundTasks"], swiftSettings: host),
+        .testTarget(name: "DarwinClipboardTests", dependencies: ["DarwinClipboard"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]

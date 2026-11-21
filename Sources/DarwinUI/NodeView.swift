@@ -440,6 +440,14 @@ struct NodeView: View {
         case "disabled":
             return AnyView(view.disabled(args["value"]?.bool ?? true))
 
+        case "textSelection":
+            // Inherited, as SwiftUI's is: the user selects a `Text` or a
+            // `Label` and copies it with the platform's own menu.
+            if args["enabled"]?.bool ?? true {
+                return AnyView(view.textSelection(.enabled))
+            }
+            return AnyView(view.textSelection(.disabled))
+
         case "onTapGesture":
             let id = model.id
             let store = self.store

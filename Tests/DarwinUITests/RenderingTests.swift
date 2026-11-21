@@ -39,6 +39,8 @@ struct RenderingTests {
         ModifierNode("lineLimit"),
         ModifierNode("multilineTextAlignment", ["alignment": "center"]),
         ModifierNode("disabled", ["value": false]),
+        ModifierNode("textSelection", ["enabled": true]),
+        ModifierNode("textSelection", ["enabled": false]),
         ModifierNode("onTapGesture", ["count": 2]),
         ModifierNode("accessibilityLabel", ["text": "Label"]),
         ModifierNode("accessibilityIdentifier", ["identifier": "identifier"]),
