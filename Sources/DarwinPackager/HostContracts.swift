@@ -2,6 +2,7 @@ import DynamicAuthentication
 import DynamicBackgroundTasks
 import DynamicBluetooth
 import DynamicClipboard
+import DynamicContacts
 import DynamicCoreModel
 import DynamicDefaults
 import DynamicDocuments
@@ -124,6 +125,10 @@ public enum HostContracts {
             Module(name: "DarwinSecrets", descriptors: [SecretsProxy.descriptor, SecretCallbackProxy.descriptor]),
             Module(name: "DarwinAuthentication", descriptors: [
                 WebAuthenticationProxy.descriptor, WebAuthenticationCallbackProxy.descriptor,
+            ]),
+            Module(name: "DarwinContacts", descriptors: [
+                ContactsProxy.descriptor, ContactRecordProxy.descriptor,
+                ContactCallbackProxy.descriptor, ContactsDelegateProxy.descriptor,
             ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
