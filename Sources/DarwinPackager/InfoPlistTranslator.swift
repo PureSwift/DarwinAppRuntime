@@ -147,9 +147,15 @@ public struct InfoPlistTranslator {
             if !required.isEmpty {
                 info["UIRequiredDeviceCapabilities"] = required
             }
-            let modes = Capabilities.backgroundModes(bundle.capabilities.sorted(), options: bundle.capabilityOptions, platform: platform)
+            let capabilities = bundle.capabilities.sorted()
+            let modes = Capabilities.backgroundModes(capabilities, options: bundle.capabilityOptions,
+                                                     tasks: bundle.backgroundTasks, platform: platform)
             if !modes.isEmpty {
                 info["UIBackgroundModes"] = modes
+            }
+            let permitted = Capabilities.permittedTasks(capabilities, tasks: bundle.backgroundTasks, platform: platform)
+            if !permitted.isEmpty {
+                info["BGTaskSchedulerPermittedIdentifiers"] = permitted
             }
         }
         info.merge(try usageDescriptions()) { $1 }
