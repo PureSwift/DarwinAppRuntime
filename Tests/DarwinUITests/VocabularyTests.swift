@@ -246,6 +246,21 @@ struct VocabularyTests {
         #expect(asked == [3])
     }
 
+    @Test func videoPlayersComeFromTheProvider() {
+        #expect(VideoPlayers.provider == nil, "nothing without DarwinMedia")
+        var asked: [String] = []
+        VideoPlayers.provider = { identifier, scaling, controls in
+            asked.append("\(identifier) \(scaling ?? "-") \(controls ?? "-")")
+            return AnyView(EmptyView())
+        }
+        defer { VideoPlayers.provider = nil }
+        _ = VideoPlayers.view(["player": .int(4), "scaling": "fill", "controls": "none"])
+        _ = VideoPlayers.view(["player": .int(5)])
+        _ = VideoPlayers.view(["scaling": "fit"])
+        _ = VideoPlayers.view(["player": "4"])
+        #expect(asked == ["4 fill none", "5 - -"])
+    }
+
     @Test func buttonRoles() {
         #expect(Styles.buttonRole("destructive") == .destructive)
         #expect(Styles.buttonRole("cancel") == .cancel)
