@@ -104,6 +104,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinDocuments` | `Documents`: AppRuntime's `HostDocuments` over the platform's pickers and bookmarks (§5.7) |
 | `DarwinNotifications` | `Notifications` and `PushNotifications`: AppRuntime's `HostNotifications` over `UNUserNotificationCenter` and APNs (§5.8) |
 | `DarwinMedia` | `MediaPlayback`: AppRuntime's `HostMediaPlayback` over `AVPlayer`, what's playing in `MPNowPlayingInfoCenter`, and the `VideoPlayer` views (§5.9) |
+| `DarwinBackgroundTasks` | `BackgroundTasks`: AppRuntime's `HostBackgroundTasks` over `BGTaskScheduler` (iOS) and `NSBackgroundActivityScheduler` (macOS) (§5.10) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -225,6 +226,7 @@ behavior. These rules apply across all of them:
 | `Documents` | UIKit's document picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
 | `Notifications`, `PushNotifications` | UserNotifications, and APNs through the app delegate, through AppRuntime's `HostNotifications` | §5.8. |
 | `MediaPlayback` | AVFoundation, AVKit and MediaPlayer, through AppRuntime's `HostMediaPlayback` | §5.9. |
+| `BackgroundTasks` | BackgroundTasks and UIKit (iOS), Foundation (macOS), through AppRuntime's `HostBackgroundTasks` | §5.10. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -500,10 +502,11 @@ did until the guest listens. `DarwinNotifications` gives it
 - **`declaresRemote`** is `RTCapabilityOptions.notifications.remote`, and
   the packager adds `aps-environment` for it, as before.
 
-Not done: `wakesApp` (`UIBackgroundModes: remote-notification`) and
-`.background` actions running the guest without a window, which wait on
-`BackgroundTasks`; and the time-sensitive entitlement, without which the
-system shows a time-sensitive notification as an active one.
+A `.background` button and a push with data only start a closed app in
+the background, which starts the guest as any launch does (§5.10); the
+packager adds `UIBackgroundModes: remote-notification` for `wakesApp`.
+Not done: the time-sensitive entitlement, without which the system shows
+a time-sensitive notification as an active one.
 
 ### 5.9 Media
 
@@ -561,6 +564,52 @@ gives it the platform's side:
 Not done: a muted player, or one with no sound, still makes the session
 active when it plays, so it silences other apps; picture in picture and
 AirPlay, beyond what AVKit's controls offer.
+
+### 5.10 Background tasks
+
+`DarwinBackgroundTasks` registers AppRuntime's `HostBackgroundTasks` for
+the background contract (AppRuntime's
+`Documentation/Contracts/BackgroundTasks.md`). `HostBackgroundTasks`
+checks each request against the manifest's tasks, numbers runs and
+activities, and remembers repeating requests, in the host's own folder
+(`FileLocations.host`, which no `FileDirectory` reaches).
+`DarwinBackgroundTasks` gives it the system's scheduler,
+`DarwinBackgroundScheduler`:
+
+- **A background launch is a launch.** The guest starts in
+  `didFinishLaunching` as always, and its renderer is kept until there's a
+  window (`RendererScenes`). `Application.state()` says `.background`.
+  The same holds for a `.background` notification button and a push with
+  data only.
+- **iOS.**
+  - The app delegate registers a launch handler for each of the manifest's
+    tasks in `willFinishLaunching`, as `BGTaskScheduler` requires, and only
+    for identifiers `BGTaskSchedulerPermittedIdentifiers` names:
+    registering another is a crash. A handler starts a run, which
+    completes the system's task; its `expirationHandler` expires the run.
+  - A request is a `BGAppRefreshTaskRequest` or a
+    `BGProcessingTaskRequest`, with `earliestBeginDate`, and for processing
+    the network and power. The system runs it once, so
+    `HostBackgroundTasks` asks again as a repeating one starts.
+    `tooManyPendingTaskRequests` is `limitReached`; `unavailable`, which
+    is what the Simulator says, is `unsupported`.
+  - An activity is `beginBackgroundTask`; its expiration handler tells the
+    guest, then ends the system's task. `timeRemaining` is
+    `backgroundTimeRemaining`, unlimited while the app is in front.
+    `status` is `backgroundRefreshStatus`.
+- **macOS.** An `NSBackgroundActivityScheduler` per request runs it while
+  the app is open, and repeats it itself. One that runs once is put off
+  until its earliest time. Nothing keeps them when the app quits, so the
+  repeating ones `HostBackgroundTasks` remembers are scheduled again at
+  launch. A Mac app isn't suspended: an activity only keeps the system
+  from terminating it (`ProcessInfo.beginActivity`), and never runs out.
+- **The packager** writes `BGTaskSchedulerPermittedIdentifiers` from
+  `RTBackgroundTasks`, and `UIBackgroundModes`: `fetch` for a refresh
+  task, `processing` for a processing task, and `remote-notification` for
+  `wakesApp`.
+
+Not done: a request that runs once doesn't survive a Mac app quitting,
+and the network and power requirements aren't kept on macOS.
 
 ## 6. Built-in contracts
 
