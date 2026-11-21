@@ -103,6 +103,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinModelStore` | `ModelStore`: AppRuntime's `HostModelStore` over CoreModel's Core Data store (§5.6) |
 | `DarwinDocuments` | `Documents`: AppRuntime's `HostDocuments` over the platform's pickers and bookmarks (§5.7) |
 | `DarwinNotifications` | `Notifications` and `PushNotifications`: AppRuntime's `HostNotifications` over `UNUserNotificationCenter` and APNs (§5.8) |
+| `DarwinMedia` | `MediaPlayback`: AppRuntime's `HostMediaPlayback` over `AVPlayer`, what's playing in `MPNowPlayingInfoCenter`, and the `VideoPlayer` views (§5.9) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -223,6 +224,7 @@ behavior. These rules apply across all of them:
 | `ModelStore` | Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` | §5.6. |
 | `Documents` | UIKit's document picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
 | `Notifications`, `PushNotifications` | UserNotifications, and APNs through the app delegate, through AppRuntime's `HostNotifications` | §5.8. |
+| `MediaPlayback` | AVFoundation, AVKit and MediaPlayer, through AppRuntime's `HostMediaPlayback` | §5.9. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -502,6 +504,63 @@ Not done: `wakesApp` (`UIBackgroundModes: remote-notification`) and
 `.background` actions running the guest without a window, which wait on
 `BackgroundTasks`; and the time-sensitive entitlement, without which the
 system shows a time-sensitive notification as an active one.
+
+### 5.9 Media
+
+`DarwinMedia` registers AppRuntime's `HostMediaPlayback` for the media
+contracts (AppRuntime's `Documentation/Contracts/MediaPlayer.md` and
+`NowPlaying.md`). `HostMediaPlayback` checks and finds each source, keeps
+which player is the app's now-playing one, answers its buttons, and
+applies the rules for the background and interruptions. `DarwinMedia`
+gives it the platform's side:
+
+- **An `AVPlayer` per player** (`AVMediaEngine`). AVFoundation decodes,
+  keeps time and syncs sound to picture on its own threads; the engine
+  reads what the player and its item say on the main thread and reports
+  it.
+  - A URL streams; a file is its path; `loadData`'s bytes are written to a
+    temporary file named for their MIME type, since AVFoundation tells
+    formats apart by the extension.
+  - Waiting at the start of playback, which `AVPlayer` does every time,
+    isn't buffering; waiting to minimize stalls is.
+  - A pause the engine didn't ask for is the user's, from AVKit's
+    controls. The player's change is read after what's queued on the main
+    thread, so the background's or an interruption's reason arrives
+    first.
+  - Seeks are exact (zero tolerance). Rates keep the pitch (`spectral`).
+    Looping seeks back to the start at the end, without ending.
+  - A file or bytes that won't load are `unsupportedFormat`: AVFoundation
+    says only that it stopped. Other failures follow the error's chain:
+    URL loading errors are `network`, an HTTP 404 is `notFound`.
+  - `canPlay` is `probably` for the formats every host plays, and
+    otherwise what `AVURLAsset.isPlayableExtendedMIMEType` says: `maybe`
+    for HTTP Live Streaming.
+- **A source in the bundle or the app's files** is found through
+  `HostFiles`, so `DarwinMedia` configures `DarwinFiles`' directories when
+  the app doesn't use `Files` itself.
+- **What's playing** (`NowPlayingCenter`) is `MPNowPlayingInfoCenter`,
+  filled from what the app said and the player's position, duration and
+  rate at each change of state. Artwork is decoded once. The
+  `MPRemoteCommandCenter` buttons are enabled as the app offered them, and
+  go to `HostMediaPlayback.remote`.
+- **The audio session** (iOS) is `playback`: a player takes the sound from
+  other apps and plays with the ring/silent switch on silent. It's made
+  active before a player that isn't muted plays, and stays active.
+  Interruptions and unplugged headphones go to `HostMediaPlayback`, and so
+  does the app's move to the background.
+- **The background.** With `.audio(background: true)` the packager adds
+  `UIBackgroundModes: audio` on iOS, and every player is allowed to go on
+  (`audiovisualBackgroundPlaybackPolicy`). `HostMediaPlayback` pauses the
+  ones that don't play in the background. A Mac app isn't suspended, and
+  its players go on when it isn't in front.
+- **`VideoPlayer` nodes** show the player's `AVPlayer` in AVKit's player
+  view, `AVPlayerViewController` or `AVPlayerView`, with the platform's
+  controls or none, scaled as the node says. AVKit's own now-playing
+  updates are off; the host's are the app's.
+
+Not done: a muted player, or one with no sound, still makes the session
+active when it plays, so it silences other apps; picture in picture and
+AirPlay, beyond what AVKit's controls offer.
 
 ## 6. Built-in contracts
 
