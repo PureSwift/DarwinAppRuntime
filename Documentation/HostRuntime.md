@@ -105,6 +105,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinNotifications` | `Notifications` and `PushNotifications`: AppRuntime's `HostNotifications` over `UNUserNotificationCenter` and APNs (§5.8) |
 | `DarwinMedia` | `MediaPlayback`: AppRuntime's `HostMediaPlayback` over `AVPlayer`, what's playing in `MPNowPlayingInfoCenter`, and the `VideoPlayer` views (§5.9) |
 | `DarwinBackgroundTasks` | `BackgroundTasks`: AppRuntime's `HostBackgroundTasks` over `BGTaskScheduler` (iOS) and `NSBackgroundActivityScheduler` (macOS) (§5.10) |
+| `DarwinClipboard` | `Clipboard`: AppRuntime's `HostClipboard` over `UIPasteboard` (iOS) and `NSPasteboard` (macOS) (§5.11) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -227,6 +228,7 @@ behavior. These rules apply across all of them:
 | `Notifications`, `PushNotifications` | UserNotifications, and APNs through the app delegate, through AppRuntime's `HostNotifications` | §5.8. |
 | `MediaPlayback` | AVFoundation, AVKit and MediaPlayer, through AppRuntime's `HostMediaPlayback` | §5.9. |
 | `BackgroundTasks` | BackgroundTasks and UIKit (iOS), Foundation (macOS), through AppRuntime's `HostBackgroundTasks` | §5.10. |
+| `Clipboard` | UIKit's and AppKit's pasteboards, through AppRuntime's `HostClipboard` | §5.11. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -610,6 +612,38 @@ activities, and remembers repeating requests, in the host's own folder
 
 Not done: a request that runs once doesn't survive a Mac app quitting,
 and the network and power requirements aren't kept on macOS.
+
+### 5.11 Clipboard
+
+`DarwinClipboard` registers AppRuntime's `HostClipboard` for the clipboard
+contract (AppRuntime's `Documentation/Contracts/Clipboard.md`).
+`HostClipboard` tells a PNG from a JPEG, reads and writes image files
+through `HostFiles` off the main thread, and answers each callback once.
+`DarwinClipboard` gives it the general pasteboard, `SystemPasteboard`:
+
+- **Looking** uses what the pasteboard says it holds, which never asks:
+  `hasStrings`, `hasURLs` and `hasImages` on iOS, the types on macOS. A
+  URL counts as text, since a text read gives its text.
+- **Writing** puts one item there. A URL goes with its text, as the
+  platform's URL kind and as text.
+  - On iOS a sensitive copy is `.localOnly`, kept off the user's other
+    devices.
+  - On macOS it's marked `org.nspasteboard.ConcealedType`, which clipboard
+    managers leave out.
+- **Reading on iOS** asks the user, from iOS 16, unless they allowed the
+  app in Settings.
+  - Each read touches the pasteboard once, so there's one question.
+  - A refusal reads as nothing. When the pasteboard said it held the kind,
+    that's `notAllowed`.
+  - An image is read as PNG or JPEG where it's there as one, and otherwise
+    converted to PNG.
+- **Reading on macOS** asks nothing. An image held as TIFF, as most Mac
+  apps copy one, is converted to PNG.
+- **Files:** an image is copied from a file and pasted into one through
+  `HostFiles`. `DarwinClipboard` configures `DarwinFiles`' directories when
+  the app doesn't use `Files` itself.
+- **`textSelection`** in the renderer is SwiftUI's own modifier
+  (`SwiftUIRenderer.md` §4).
 
 ## 6. Built-in contracts
 
