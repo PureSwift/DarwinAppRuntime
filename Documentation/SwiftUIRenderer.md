@@ -76,6 +76,7 @@ re-evaluating the views whose nodes changed.
 | `Button` | `Button(role:action:) { children }`; the action sends `tap` |
 | `Toggle` | `Toggle(isOn:)` over a synced binding (§6) |
 | `TextField` | `TextField` / `SecureField`; submit through `.onSubmit` |
+| `TextEditor` | The text view of the text whose `identifier()` is its `buffer` prop, with its `editable` and `wraps`, from `TextEditorViews.provider` (`DarwinText`, `HostRuntime.md` §5.12); nothing without one, or once the guest released the text. It follows the inherited font and keyboard modifiers, which reach it through the environment (`renderFont`, `renderAutocorrectionDisabled`, `renderAutocapitalization`) |
 | `Slider` | `Slider(value:in:step:)` |
 | `Stepper` | `Stepper(value:in:step:) { label }` |
 | `ProgressView` | `ProgressView(value:total:)` / `ProgressView()` |
@@ -130,6 +131,9 @@ A node's modifiers fold in order over its view:
 | `lineLimit`, `multilineTextAlignment` | the same |
 | `disabled` | `.disabled(_:)` |
 | `textSelection` | `.textSelection(.enabled)` or `.textSelection(.disabled)` |
+| `autocorrection` | `.disableAutocorrection(_:)`, and the environment for a text view |
+| `autocapitalization` | `.textInputAutocapitalization(_:)` on iOS, and the environment for a text view |
+| `focused` | `@FocusState` with `.focused`, synced like a control: the keyboard moves only when `value` differs from what was last rendered or reported, and the user's moves send `focus`. A `TextEditor`'s text view does the same itself |
 | `onTapGesture` | `.onTapGesture(count:)`, sending `tap` |
 | `accessibilityLabel` | `.accessibilityLabel(_:)` |
 | `accessibilityIdentifier` | `.accessibilityIdentifier(_:)` |
