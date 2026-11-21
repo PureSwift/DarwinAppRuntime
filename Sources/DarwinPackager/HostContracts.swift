@@ -9,6 +9,7 @@ import DynamicGraphics
 import DynamicLocation
 import DynamicMotion
 import DynamicNFC
+import DynamicNotifications
 import DynamicNetworking
 import DynamicRuntime
 import DynamicUI
@@ -101,6 +102,11 @@ public enum HostContracts {
             Module(name: "DarwinDocuments", descriptors: [
                 DocumentsProxy.descriptor, DocumentGrantProxy.descriptor,
                 DocumentCallbackProxy.descriptor, DocumentsDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinNotifications", descriptors: [
+                NotificationsProxy.descriptor, NotificationRecordProxy.descriptor,
+                NotificationCallbackProxy.descriptor, NotificationsDelegateProxy.descriptor,
+                PushNotificationsProxy.descriptor, PushCallbackProxy.descriptor, PushDelegateProxy.descriptor,
             ]),
             Module(name: "DarwinModelStore", descriptors: [
                 ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,

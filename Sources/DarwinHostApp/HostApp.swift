@@ -10,6 +10,7 @@ import DarwinModelStore
 import DarwinMotion
 import DarwinNetworking
 import DarwinNFC
+import DarwinNotifications
 import DarwinUI
 import DarwinWebKit
 import Foundation
@@ -42,6 +43,7 @@ public enum HostApp {
             DarwinDefaults.self,
             DarwinModelStore.self,
             DarwinDocuments.self,
+            DarwinNotifications.self,
         ]
     }
 
