@@ -241,7 +241,11 @@ locally, which is enough for the simulator and macOS.
    - iOS device builds embed the provisioning profile.
    - `codesign --entitlements … --sign …`. macOS builds add
      `--options runtime`, for the hardened runtime that notarization needs.
-   - Simulator builds sign ad hoc (`-`).
+   - Simulator builds sign ad hoc (`-`). As Xcode does, they get
+     `application-identifier` and `keychain-access-groups` for the bundle
+     identifier, linked into the executable's `__TEXT,__entitlements`
+     rather than put in the signature, where the Simulator won't launch
+     them. Without them its Keychain refuses the app.
 8. **Package.**
    - iOS: an `.ipa` (`Payload/App.app`, zipped).
    - macOS: the `.app`, optionally notarized with `notarytool` and stapled.
@@ -282,6 +286,7 @@ host runtime.
 | `notifications` | `UIBackgroundModes: remote-notification` with `wakesApp` | `aps-environment` when remote | `com.apple.developer.aps-environment` |
 | `audio` | `UIBackgroundModes: audio` with `background` | — | — (a Mac app isn't suspended) |
 | `backgroundTasks` | `BGTaskSchedulerPermittedIdentifiers` from the manifest's tasks; `UIBackgroundModes` with `fetch` for a refresh task and `processing` for a processing task | — | — |
+| `secrets` | — | — | — (the app's own Keychain items need no entitlement) |
 | `graphics(.gles2)` | `opengles-2` when required | — | — (desktop OpenGL runs GLES 2.0; `HostRuntime.md` §5.2) |
 
 - **Required or optional.** A capability is optional unless the manifest

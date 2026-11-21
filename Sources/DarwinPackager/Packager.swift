@@ -313,7 +313,8 @@ public struct Packager {
 
         // 5. The executable.
         let linked = try stageLibrary(library, in: work)
-        let executable = try buildExecutable(library: linked, work: work, deploymentTarget: deploymentTarget, architectures: architectures, sdk: sdk)
+        let executable = try buildExecutable(library: linked, work: work, deploymentTarget: deploymentTarget, architectures: architectures, sdk: sdk,
+                                             simulated: platform == .iosSimulator ? Entitlements.simulated(bundle) : nil)
 
         // 6. The app.
         let artifact = outputURL(bundle)
@@ -474,14 +475,24 @@ public struct Packager {
         return staged
     }
 
-    func buildExecutable(library: URL, work: URL, deploymentTarget: String, architectures: [String], sdk: SDKInfo) throws -> URL {
+    /// - Parameter simulated: the Simulator's entitlements, which go in the
+    ///   executable rather than its signature.
+    func buildExecutable(library: URL, work: URL, deploymentTarget: String, architectures: [String], sdk: SDKInfo,
+                         simulated: [String: Any]? = nil) throws -> URL {
         log.step("Building the host executable with DarwinHostApp from \(options.hostPackage.path)")
+        var entitlements: URL?
+        if let simulated {
+            let url = work.appendingPathComponent("Simulated.entitlements")
+            try simulated.propertyListData().write(to: url)
+            entitlements = url
+        }
         let package = HostPackage(
             hostPackage: options.hostPackage,
             library: library,
             platform: platform,
             deploymentTarget: deploymentTarget,
-            sdkVersion: sdk.version
+            sdkVersion: sdk.version,
+            simulatedEntitlements: entitlements
         )
         let directory = work.appendingPathComponent("host")
         try package.write(to: directory)

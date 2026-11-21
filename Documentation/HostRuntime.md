@@ -107,6 +107,8 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinBackgroundTasks` | `BackgroundTasks`: AppRuntime's `HostBackgroundTasks` over `BGTaskScheduler` (iOS) and `NSBackgroundActivityScheduler` (macOS) (§5.10) |
 | `DarwinClipboard` | `Clipboard`: AppRuntime's `HostClipboard` over `UIPasteboard` (iOS) and `NSPasteboard` (macOS) (§5.11) |
 | `DarwinText` | `TextStorage`: AppRuntime's `HostTextStorage` over `UITextView` (iOS) and `NSTextView` (macOS), and the `TextEditor` views (§5.12) |
+| `DarwinSecrets` | `Secrets`: AppRuntime's `HostSecrets` over the Keychain (§5.13) |
+| `DarwinAuthentication` | `WebAuthentication`: AppRuntime's `HostWebAuthentication` over `ASWebAuthenticationSession` (§5.13) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -231,6 +233,8 @@ behavior. These rules apply across all of them:
 | `BackgroundTasks` | BackgroundTasks and UIKit (iOS), Foundation (macOS), through AppRuntime's `HostBackgroundTasks` | §5.10. |
 | `Clipboard` | UIKit's and AppKit's pasteboards, through AppRuntime's `HostClipboard` | §5.11. |
 | `TextStorage` | UIKit's and AppKit's text views, through AppRuntime's `HostTextStorage` | §5.12. |
+| `Secrets` | Security (Keychain Services), through AppRuntime's `HostSecrets` | §5.13. |
+| `WebAuthentication` | AuthenticationServices, through AppRuntime's `HostWebAuthentication` | §5.13. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -696,6 +700,48 @@ surrogate pairs, keeps whether the text is modified, and searches.
 Not done: `foregroundColor` and `tint` on a text view, which SwiftUI's
 environment doesn't expose; wrapping turned off on iOS isn't checked with
 TextKit 2.
+
+### 5.13 Secrets and sign-in
+
+Two modules, as AppRuntime has two (`Documentation/Contracts/Secrets.md`),
+so an app that only keeps a password doesn't ask for a browser.
+
+`DarwinSecrets` registers `HostSecrets`, which checks keys and sizes, runs
+the store off the main thread in order, and answers on the main thread.
+Its store, `KeychainStore`:
+
+- **Generic passwords,** with the app's identifier as the service and the
+  key as the account.
+- **This device only:** `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`
+  or `…AfterFirstUnlockThisDeviceOnly`, so a secret isn't in a backup or
+  synced. A `set` replaces the item whole, accessibility included.
+- **Gone with the app:** iOS keeps Keychain items after an app is
+  removed, so a marker in the host's own folder (`FileLocations.host`),
+  which goes with the app, says whether this is the first run since
+  installing. The store is emptied then.
+- **macOS:** the data protection keychain, as on iOS, where the app is
+  signed for it. Otherwise the login keychain, where accessibility doesn't
+  apply. Which one is found on first use: deleting an item that isn't
+  there is refused with `errSecMissingEntitlement` when it's not allowed.
+- **Errors:** the user refusing is `notAllowed`; anything else, a locked
+  device included, is `unavailable`.
+
+`DarwinAuthentication` registers `HostWebAuthentication`, which refuses a
+URL that isn't `https` and a redirect whose scheme the manifest doesn't
+declare (`RTAuthenticationSchemes`), and shows one page at a time. Its
+presenter, `SystemBrowser`:
+
+- **`ASWebAuthenticationSession`,** over the app's key window, called back
+  on the redirect's scheme, with `prefersEphemeralWebBrowserSession` for
+  an ephemeral page. The redirect is the default, `scheme:/path`.
+- **The result** is the whole callback URL. Closing the page is
+  `canceledLogin`; a session that won't start, or has no window, is
+  `notAllowed`.
+
+The packager accepts `.secrets`, which needs no entitlement on a signed
+app. A Simulator build gets the identifier the Simulator's Keychain wants
+linked into its executable (`ManifestPackager.md`, step 7). A scheme needs
+nothing in `Info.plist`: the session is given it when it starts.
 
 ## 6. Built-in contracts
 
