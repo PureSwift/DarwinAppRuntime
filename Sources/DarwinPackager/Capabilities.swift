@@ -64,6 +64,9 @@ public enum Capabilities {
             // It prompts for nothing; `background` plays on when the app
             // leaves the front.
             CapabilityRule(name: "audio"),
+            // Work the system runs in the background (`DarwinBackgroundTasks`).
+            // It prompts for nothing.
+            CapabilityRule(name: "backgroundTasks"),
             // The user's own files, through the pickers (`DarwinDocuments`).
             // It prompts for nothing; the sandbox needs to let the app at
             // what the user picks, and keep bookmarks to it.
@@ -119,16 +122,41 @@ public enum Capabilities {
         options["required"] == "true"
     }
 
-    /// `UIBackgroundModes` on iOS: `audio` for `.audio(background: true)`
-    /// (`RTCapabilityOptions.audio.background`). A Mac app isn't
-    /// suspended, so it needs none.
-    public static func backgroundModes(_ capabilities: [String], options: [String: [String: String]], platform: ApplePlatform) -> [String] {
+    /// `UIBackgroundModes` on iOS:
+    ///
+    /// - `audio` for `.audio(background: true)`
+    ///   (`RTCapabilityOptions.audio.background`);
+    /// - `fetch` for a refresh task and `processing` for a processing task
+    ///   (`RTBackgroundTasks`);
+    /// - `remote-notification` for `.notifications(remote: true, wakesApp: true)`.
+    ///
+    /// A Mac app isn't suspended, so it needs none.
+    public static func backgroundModes(_ capabilities: [String], options: [String: [String: String]],
+                                       tasks: [BackgroundTaskEntry] = [], platform: ApplePlatform) -> [String] {
         guard !platform.isMac else { return [] }
         var modes = [String]()
         if capabilities.contains("audio"), options["audio"]?["background"] == "true" {
             modes.append("audio")
         }
+        if capabilities.contains("backgroundTasks") {
+            if tasks.contains(where: { $0.kind == "refresh" }) {
+                modes.append("fetch")
+            }
+            if tasks.contains(where: { $0.kind == "processing" }) {
+                modes.append("processing")
+            }
+        }
+        if capabilities.contains("notifications"), options["notifications"]?["wakesApp"] == "true" {
+            modes.append("remote-notification")
+        }
         return modes
+    }
+
+    /// `BGTaskSchedulerPermittedIdentifiers` on iOS: every task the manifest
+    /// names. iOS runs no other.
+    public static func permittedTasks(_ capabilities: [String], tasks: [BackgroundTaskEntry], platform: ApplePlatform) -> [String] {
+        guard !platform.isMac, capabilities.contains("backgroundTasks") else { return [] }
+        return tasks.map(\.identifier)
     }
 
     /// Whether notifications include remote (push) ones, which need
