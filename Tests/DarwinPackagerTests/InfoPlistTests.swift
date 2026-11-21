@@ -63,6 +63,25 @@ import Testing
         #expect(macInfo["NSLocationAlwaysAndWhenInUseUsageDescription"] == nil)
     }
 
+    @Test func playsAudioInTheBackground() throws {
+        let fixture = FixtureBundle().with([
+            "RTCapabilities": ["audio"],
+            "RTCapabilityOptions": ["audio": ["background": "true"]],
+        ])
+        let ios = try translator(fixture, .ios).infoPlist(sdk: nil)
+        #expect(ios["UIBackgroundModes"] as? [String] == ["audio"])
+        // A Mac app isn't suspended.
+        let macos = try translator(fixture, .macos).infoPlist(sdk: nil)
+        #expect(macos["UIBackgroundModes"] == nil)
+        // Without the option, it plays in front only.
+        let front = try translator(FixtureBundle().with(["RTCapabilities": ["audio"]]), .ios).infoPlist(sdk: nil)
+        #expect(front["UIBackgroundModes"] == nil)
+        // The app's own modes are added to it.
+        let located = fixture.with(["RTPlatformExtras": ["apple": ["extraInfoPlist": ["UIBackgroundModes": ["location", "audio"]]]]])
+        let both = try translator(located, .ios).infoPlist(sdk: nil)
+        #expect(both["UIBackgroundModes"] as? [String] == ["audio", "location"])
+    }
+
     @Test func mergesExtrasLast() throws {
         let fixture = FixtureBundle().with(["RTPlatformExtras": ["apple": ["extraInfoPlist": [
             "UIBackgroundModes": ["bluetooth-central"],
