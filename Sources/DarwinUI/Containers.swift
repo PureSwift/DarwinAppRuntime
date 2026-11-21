@@ -192,6 +192,24 @@ public enum WebViews {
     }
 }
 
+/// What `VideoPlayer` nodes show (`RenderIR.md`): a player's picture, by
+/// its `identifier()`, with the node's `scaling` and `controls`.
+/// `DarwinMedia` provides them when the app uses `MediaPlayback`; without
+/// it, a `VideoPlayer` shows nothing.
+public enum VideoPlayers {
+
+    /// Makes the view of the player with an identifier, scaled and with
+    /// the controls the node asks for.
+    public static var provider: ((_ player: Int32, _ scaling: String?, _ controls: String?) -> AnyView)?
+
+    static func view(_ props: [String: PropValue]) -> AnyView {
+        guard let provider, let value = props["player"]?.int, let identifier = Int32(exactly: value) else {
+            return AnyView(EmptyView())
+        }
+        return provider(identifier, props["scaling"]?.string, props["controls"]?.string)
+    }
+}
+
 /// A `Shape` node: the SwiftUI shape, filled or stroked.
 struct ShapeNodeView: View {
 
