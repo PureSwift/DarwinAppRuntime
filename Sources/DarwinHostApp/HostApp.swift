@@ -14,6 +14,7 @@ import DarwinMotion
 import DarwinNetworking
 import DarwinNFC
 import DarwinNotifications
+import DarwinText
 import DarwinUI
 import DarwinWebKit
 import Foundation
@@ -50,6 +51,7 @@ public enum HostApp {
             DarwinMedia.self,
             DarwinBackgroundTasks.self,
             DarwinClipboard.self,
+            DarwinText.self,
         ]
     }
 
