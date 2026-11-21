@@ -112,7 +112,7 @@ A node's modifiers fold in order over its view:
 - Unknown kinds are ignored.
 - SwiftUI already passes the inherited modifiers (`font`,
   `foregroundColor`, `tint`, `lineLimit`, `multilineTextAlignment`,
-  `disabled`) down to descendants, which matches the IR's inheritance rule,
+  `disabled`, `textSelection`) down to descendants, which matches the IR's inheritance rule,
   so they map one to one.
 
 | IR kind | SwiftUI |
@@ -129,6 +129,7 @@ A node's modifiers fold in order over its view:
 | `fontWeight`, `italic` | `.font` adjustments; `.fontWeight` |
 | `lineLimit`, `multilineTextAlignment` | the same |
 | `disabled` | `.disabled(_:)` |
+| `textSelection` | `.textSelection(.enabled)` or `.textSelection(.disabled)` |
 | `onTapGesture` | `.onTapGesture(count:)`, sending `tap` |
 | `accessibilityLabel` | `.accessibilityLabel(_:)` |
 | `accessibilityIdentifier` | `.accessibilityIdentifier(_:)` |
