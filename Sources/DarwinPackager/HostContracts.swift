@@ -1,5 +1,6 @@
 import DynamicBackgroundTasks
 import DynamicBluetooth
+import DynamicClipboard
 import DynamicCoreModel
 import DynamicDefaults
 import DynamicDocuments
@@ -113,6 +114,7 @@ public enum HostContracts {
             Module(name: "DarwinBackgroundTasks", descriptors: [
                 BackgroundTasksProxy.descriptor, BackgroundTasksDelegateProxy.descriptor, BackgroundCallbackProxy.descriptor,
             ]),
+            Module(name: "DarwinClipboard", descriptors: [ClipboardProxy.descriptor, ClipboardCallbackProxy.descriptor]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
                 ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,
