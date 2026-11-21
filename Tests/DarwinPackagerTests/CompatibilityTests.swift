@@ -145,6 +145,8 @@ import Testing
         #expect(ios["org.pureswift.media.Playback"] != nil)
         #expect(ios["org.pureswift.background.Tasks"] != nil)
         #expect(ios["org.pureswift.clipboard.Clipboard"] != nil)
+        #expect(ios["org.pureswift.text.Storage"] != nil)
+        #expect(macos["org.pureswift.text.Callback"] != nil)
         #expect(macos["org.pureswift.clipboard.Callback"] != nil)
         #expect(macos["org.pureswift.background.Callback"] != nil)
         #expect(macos["org.pureswift.media.PlaybackDelegate"] != nil)

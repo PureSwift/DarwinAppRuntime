@@ -49,6 +49,7 @@ them.
 | `DarwinMedia` | `MediaPlayback`: songs, podcasts and video over `AVPlayer`, what's playing on the lock screen and in Control Center, and `VideoPlayer` views, through AppRuntime's `HostMediaPlayback` |
 | `DarwinBackgroundTasks` | `BackgroundTasks`: work the system runs while the app is closed, and time to finish something, over `BGTaskScheduler` and `beginBackgroundTask`, through AppRuntime's `HostBackgroundTasks` |
 | `DarwinClipboard` | `Clipboard`: copying and pasting text, links and images through the system's pasteboard, through AppRuntime's `HostClipboard` |
+| `DarwinText` | `TextStorage`: texts the host holds and the user edits, in `TextEditor` views over `UITextView` and `NSTextView`, through AppRuntime's `HostTextStorage` |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer. It also registers AppRuntime's `RuntimeFormatting` (`LocaleInfo`, `NumberFormat`, `DateFormat` over Foundation), which the Linux host shares |
 | `DarwinPackager`, `darwin-app` | The packager |

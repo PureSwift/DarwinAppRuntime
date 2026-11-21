@@ -15,6 +15,7 @@ import DynamicNFC
 import DynamicNotifications
 import DynamicNetworking
 import DynamicRuntime
+import DynamicText
 import DynamicUI
 import DynamicWebKit
 
@@ -115,6 +116,9 @@ public enum HostContracts {
                 BackgroundTasksProxy.descriptor, BackgroundTasksDelegateProxy.descriptor, BackgroundCallbackProxy.descriptor,
             ]),
             Module(name: "DarwinClipboard", descriptors: [ClipboardProxy.descriptor, ClipboardCallbackProxy.descriptor]),
+            Module(name: "DarwinText", descriptors: [
+                TextStorageProxy.descriptor, TextStorageDelegateProxy.descriptor, TextCallbackProxy.descriptor,
+            ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
                 ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,

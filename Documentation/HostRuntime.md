@@ -106,6 +106,7 @@ It depends on AppRuntime without the `GuestExports` trait (§8):
 | `DarwinMedia` | `MediaPlayback`: AppRuntime's `HostMediaPlayback` over `AVPlayer`, what's playing in `MPNowPlayingInfoCenter`, and the `VideoPlayer` views (§5.9) |
 | `DarwinBackgroundTasks` | `BackgroundTasks`: AppRuntime's `HostBackgroundTasks` over `BGTaskScheduler` (iOS) and `NSBackgroundActivityScheduler` (macOS) (§5.10) |
 | `DarwinClipboard` | `Clipboard`: AppRuntime's `HostClipboard` over `UIPasteboard` (iOS) and `NSPasteboard` (macOS) (§5.11) |
+| `DarwinText` | `TextStorage`: AppRuntime's `HostTextStorage` over `UITextView` (iOS) and `NSTextView` (macOS), and the `TextEditor` views (§5.12) |
 | `CDarwinGL` | The `gl*` functions the app's executable defines over the system's, and the host's own GL calls (§5.2) |
 | `DarwinHostApp` | The app's `main`: a SwiftUI `App`. It registers AppRuntime's `RuntimeFormatting` too (§5.1) |
 | `darwin-app` | The packager (`ManifestPackager.md`) |
@@ -229,6 +230,7 @@ behavior. These rules apply across all of them:
 | `MediaPlayback` | AVFoundation, AVKit and MediaPlayer, through AppRuntime's `HostMediaPlayback` | §5.9. |
 | `BackgroundTasks` | BackgroundTasks and UIKit (iOS), Foundation (macOS), through AppRuntime's `HostBackgroundTasks` | §5.10. |
 | `Clipboard` | UIKit's and AppKit's pasteboards, through AppRuntime's `HostClipboard` | §5.11. |
+| `TextStorage` | UIKit's and AppKit's text views, through AppRuntime's `HostTextStorage` | §5.12. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -644,6 +646,56 @@ through `HostFiles` off the main thread, and answers each callback once.
   the app doesn't use `Files` itself.
 - **`textSelection`** in the renderer is SwiftUI's own modifier
   (`SwiftUIRenderer.md` §4).
+
+### 5.12 Text editing
+
+`DarwinText` registers AppRuntime's `HostTextStorage` for the text
+contract (AppRuntime's `Documentation/Contracts/TextEditor.md`).
+`HostTextStorage` reads and writes files off the main thread, decodes and
+encodes them, keeps `\n` as the only line break, moves positions out of
+surrogate pairs, keeps whether the text is modified, and searches.
+`DarwinText` gives it a text view per text, `TextViewEngine`:
+
+- **The text is a text view's storage:** a `UITextView` or an `NSTextView`
+  in its scroll view. It lives as long as the guest's `TextStorage`, on
+  screen or not. A `TextEditor` node shows it by moving the view into its
+  container; a second node naming the same text takes the view.
+- **Every change is heard from the storage's delegate,** whoever made it.
+  The storage reports a range widened by the attributes it fixes, so the
+  exact change is taken from the view's should-change callback or the
+  engine's own call when the lengths agree.
+  - It's reported once the storage has finished processing, so the guest
+    can edit again from its handler.
+  - A change from somewhere that doesn't say when it's done, such as the
+    platform's own undo menu, is reported on the next turn.
+- **Undo:** the engine keeps the history itself, in an `UndoManager` of
+  its own: each change with the text it removed, the user's and the
+  guest's. UIKit's own typing undo doesn't stay on a history it's given
+  (on the iOS Simulator it emptied it), so the text views register none.
+  - A run of keystrokes is one step, up to a line break.
+  - A guest's `replace` is a step of its own.
+  - Undoing puts the selection back as it was before the step.
+  - `setText` and a load empty the history, and so does a change the
+    engine can't undo exactly.
+  - On macOS the menu's Undo reaches the history through the text view's
+    delegate. On iOS shaking to undo does nothing.
+- **Line breaks:** what the user types or pastes with `\r\n` or `\r` is
+  put in with `\n`, as the user's own edit.
+- **Encodings** beyond the five are Foundation's, by IANA name through Core
+  Foundation's table. Bytes that aren't valid, and characters the encoding
+  lacks, are refused rather than replaced.
+- **`maximumLength`** is 16 Mi UTF-16 units on iOS and 64 Mi on macOS.
+- **The view** follows the node's `editable` and `wraps`, the inherited
+  font (`FontSpec.platformFont`), and the keyboard modifiers through the
+  environment. Its `focused` modifier makes it the first responder or
+  resigns it, by the renderer's sync rule, and reports the user's moves.
+- **The renderer** gains the `TextEditor` node, `focused` for every view
+  SwiftUI focuses, and `autocorrection` and `autocapitalization`
+  (`SwiftUIRenderer.md` §4).
+
+Not done: `foregroundColor` and `tint` on a text view, which SwiftUI's
+environment doesn't expose; wrapping turned off on iOS isn't checked with
+TextKit 2.
 
 ## 6. Built-in contracts
 

@@ -217,7 +217,7 @@ enum Styles {
 /// The font the IR's inherited `font`, `fontWeight` and `italic` modifiers
 /// add up to at a node. Kept in the environment, so a descendant's
 /// `fontWeight` adjusts its ancestor's `font`.
-struct FontSpec: Equatable {
+public struct FontSpec: Equatable {
 
     var style: String?
 
@@ -294,7 +294,9 @@ private struct InListKey: EnvironmentKey {
 
 extension EnvironmentValues {
 
-    var renderFont: FontSpec {
+    /// The font the IR's `font`, `fontWeight` and `italic` modifiers set,
+    /// inherited: for a view that isn't SwiftUI's, such as a text view.
+    public internal(set) var renderFont: FontSpec {
         get { self[FontSpecKey.self] }
         set { self[FontSpecKey.self] = newValue }
     }
