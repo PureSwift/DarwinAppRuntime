@@ -47,6 +47,7 @@ them.
 | `DarwinDocuments` | `Documents`: the user's files through the platform's pickers and bookmarks, through AppRuntime's `HostDocuments` |
 | `DarwinNotifications` | `Notifications` and `PushNotifications`: local notifications, their buttons and push, over `UNUserNotificationCenter` and APNs, through AppRuntime's `HostNotifications` |
 | `DarwinMedia` | `MediaPlayback`: songs, podcasts and video over `AVPlayer`, what's playing on the lock screen and in Control Center, and `VideoPlayer` views, through AppRuntime's `HostMediaPlayback` |
+| `DarwinBackgroundTasks` | `BackgroundTasks`: work the system runs while the app is closed, and time to finish something, over `BGTaskScheduler` and `beginBackgroundTask`, through AppRuntime's `HostBackgroundTasks` |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer. It also registers AppRuntime's `RuntimeFormatting` (`LocaleInfo`, `NumberFormat`, `DateFormat` over Foundation), which the Linux host shares |
 | `DarwinPackager`, `darwin-app` | The packager |
