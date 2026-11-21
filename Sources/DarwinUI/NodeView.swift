@@ -52,6 +52,13 @@ struct NodeView: View {
         case "VideoPlayer":
             return VideoPlayers.view(props)
 
+        case "TextEditor":
+            let id = model.id
+            let store = self.store
+            return TextEditorViews.view(node) { focused in
+                store.send(id, .focus, .bool(focused))
+            }
+
         case "VStack":
             return AnyView(VStack(alignment: Styles.horizontal(props["alignment"]), spacing: Styles.length(props["spacing"])) {
                 children
@@ -439,6 +446,18 @@ struct NodeView: View {
 
         case "disabled":
             return AnyView(view.disabled(args["value"]?.bool ?? true))
+
+        case "autocorrection", "autocapitalization":
+            return AnyView(view.modifier(KeyboardModifier(modifier: modifier)))
+
+        case "focused":
+            // A text editor gives and takes the keyboard itself.
+            guard model.node.type != "TextEditor" else { return view }
+            let id = model.id
+            let store = self.store
+            return AnyView(view.modifier(FocusModifier(value: args["value"]?.bool ?? false) { focused in
+                store.send(id, .focus, .bool(focused))
+            }))
 
         case "textSelection":
             // Inherited, as SwiftUI's is: the user selects a `Text` or a
