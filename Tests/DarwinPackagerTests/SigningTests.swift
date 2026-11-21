@@ -48,6 +48,12 @@ import Testing
         return try ProvisioningProfile.parse(data, url: URL(fileURLWithPath: "/p/App.mobileprovision"))
     }
 
+    @Test func identifiesSimulatorApps() throws {
+        let simulated = Entitlements.simulated(try bundle(FixtureBundle()))
+        #expect(simulated["application-identifier"] as? String == "org.pureswift.example")
+        #expect(simulated["keychain-access-groups"] as? [String] == ["org.pureswift.example"])
+    }
+
     @Test func mergesTheProfile() throws {
         let profile = try Self.profile()
         #expect(profile.teamIdentifier == "TEAM123456")
