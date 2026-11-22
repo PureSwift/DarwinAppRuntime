@@ -92,6 +92,8 @@ public enum HostContracts {
             // AppRuntime's, shared with the Linux host.
             Module(name: "RuntimeFormatting", descriptors: [
                 NumberFormatProxy.descriptor, DateFormatProxy.descriptor, LocaleInfoProxy.descriptor,
+                SystemClockInfoProxy.descriptor, SystemClockDelegateProxy.descriptor,
+                TimeZoneInfoProxy.descriptor, CalendarInfoProxy.descriptor, CollatorProxy.descriptor,
             ]),
             Module(name: "DarwinUI", descriptors: [
                 RendererProxy.descriptor, RendererDelegateProxy.descriptor,
