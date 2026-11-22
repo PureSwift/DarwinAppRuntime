@@ -63,6 +63,21 @@ import Testing
         #expect(macInfo["NSLocationAlwaysAndWhenInUseUsageDescription"] == nil)
     }
 
+    @Test func translatesContacts() throws {
+        for access in ["readWrite", "readOnly"] {
+            let fixture = FixtureBundle().with([
+                "RTCapabilities": ["contacts"],
+                "RTCapabilityUsage": ["contacts": "perm.bluetooth"],
+                "RTCapabilityOptions": ["contacts": ["access": access]],
+            ])
+            for platform in [ApplePlatform.ios, .macos] {
+                let info = try translator(fixture, platform).infoPlist(sdk: nil)
+                #expect(info["NSContactsUsageDescription"] as? String == "Looks for beacons.")
+                #expect(info["UIRequiredDeviceCapabilities"] == nil)
+            }
+        }
+    }
+
     @Test func playsAudioInTheBackground() throws {
         let fixture = FixtureBundle().with([
             "RTCapabilities": ["audio"],

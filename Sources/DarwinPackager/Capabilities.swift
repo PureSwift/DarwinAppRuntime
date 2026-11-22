@@ -70,6 +70,12 @@ public enum Capabilities {
             // Secrets in the Keychain (`DarwinSecrets`). It prompts for
             // nothing, and the app's own items need no entitlement.
             CapabilityRule(name: "secrets"),
+            // The user's address book (`DarwinContacts`). `.readOnly` changes
+            // nothing here: the host refuses the writes.
+            CapabilityRule(
+                name: "contacts", needsUsage: true,
+                sandboxEntitlements: ["com.apple.security.personal-information.addressbook"]
+            ),
             // The user's own files, through the pickers (`DarwinDocuments`).
             // It prompts for nothing; the sandbox needs to let the app at
             // what the user picks, and keep bookmarks to it.
@@ -110,6 +116,8 @@ public enum Capabilities {
             return ["NSLocalNetworkUsageDescription"]
         case ("camera", _):
             return ["NSCameraUsageDescription"]
+        case ("contacts", _):
+            return ["NSContactsUsageDescription"]
         default:
             return []
         }
