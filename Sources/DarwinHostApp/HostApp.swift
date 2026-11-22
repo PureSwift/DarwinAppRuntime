@@ -66,6 +66,7 @@ public enum HostApp {
     public static func run(_ entry: AppEntryPoints) -> Never {
         HostSession.shared.entry = entry
         HostFormattingModule.logToHost()
+        HostFormattingModule.followForeground()
         RuntimeHostApp.main()
         exit(0)
     }
