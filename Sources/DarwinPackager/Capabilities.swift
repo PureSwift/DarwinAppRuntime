@@ -76,6 +76,12 @@ public enum Capabilities {
                 name: "contacts", needsUsage: true,
                 sandboxEntitlements: ["com.apple.security.personal-information.addressbook"]
             ),
+            // The user's photo library (`DarwinPhotos`). `.addOnly` asks the
+            // system for adding alone.
+            CapabilityRule(
+                name: "photoLibrary", needsUsage: true,
+                sandboxEntitlements: ["com.apple.security.personal-information.photos-library"]
+            ),
             // The user's own files, through the pickers (`DarwinDocuments`).
             // It prompts for nothing; the sandbox needs to let the app at
             // what the user picks, and keep bookmarks to it.
@@ -118,6 +124,12 @@ public enum Capabilities {
             return ["NSCameraUsageDescription"]
         case ("contacts", _):
             return ["NSContactsUsageDescription"]
+        case ("photoLibrary", _):
+            // Browsing asks for reading, and an app that browses may add too.
+            if options["access"] == "addOnly" {
+                return ["NSPhotoLibraryAddUsageDescription"]
+            }
+            return ["NSPhotoLibraryUsageDescription", "NSPhotoLibraryAddUsageDescription"]
         default:
             return []
         }
