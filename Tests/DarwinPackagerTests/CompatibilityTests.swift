@@ -160,6 +160,8 @@ import Testing
         #expect(macos["org.pureswift.contacts.Delegate"] != nil)
         #expect(ios["org.pureswift.photos.Photos"] != nil)
         #expect(macos["org.pureswift.photos.File"] != nil)
+        #expect(ios["org.pureswift.camera.Capture"] != nil)
+        #expect(macos["org.pureswift.camera.CaptureDelegate"] != nil)
         #expect(macos["org.pureswift.text.Callback"] != nil)
         #expect(macos["org.pureswift.clipboard.Callback"] != nil)
         #expect(macos["org.pureswift.background.Callback"] != nil)
