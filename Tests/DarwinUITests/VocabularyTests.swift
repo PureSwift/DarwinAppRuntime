@@ -261,6 +261,22 @@ struct VocabularyTests {
         #expect(asked == ["4 fill none", "5 - -"])
     }
 
+    @Test func photosComeFromTheProvider() {
+        #expect(PhotoViews.provider == nil, "nothing without DarwinPhotos")
+        var asked: [String] = []
+        PhotoViews.provider = { asset, scaling in
+            asked.append("\(asset) \(scaling ?? "-")")
+            return AnyView(EmptyView())
+        }
+        defer { PhotoViews.provider = nil }
+        _ = PhotoViews.view(["asset": "A1/L0/001", "scaling": "fit"])
+        _ = PhotoViews.view(["asset": "B2"])
+        _ = PhotoViews.view(["asset": ""])
+        _ = PhotoViews.view(["scaling": "fill"])
+        _ = PhotoViews.view(["asset": .int(3)])
+        #expect(asked == ["A1/L0/001 fit", "B2 -"])
+    }
+
     @Test func textEditorsComeFromTheProvider() {
         #expect(TextEditorViews.provider == nil, "nothing without DarwinText")
         var asked: [TextEditorNode] = []

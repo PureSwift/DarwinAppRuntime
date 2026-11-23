@@ -288,6 +288,7 @@ host runtime.
 | `backgroundTasks` | `BGTaskSchedulerPermittedIdentifiers` from the manifest's tasks; `UIBackgroundModes` with `fetch` for a refresh task and `processing` for a processing task | — | — |
 | `secrets` | — | — | — (the app's own Keychain items need no entitlement) |
 | `contacts` | `NSContactsUsageDescription`, for `.readOnly` too | — | the same key; sandbox: `com.apple.security.personal-information.addressbook` |
+| `photoLibrary` | `NSPhotoLibraryUsageDescription` and `NSPhotoLibraryAddUsageDescription`; `NSPhotoLibraryAddUsageDescription` alone for `.addOnly` | — | the same keys; sandbox: `com.apple.security.personal-information.photos-library` |
 | `graphics(.gles2)` | `opengles-2` when required | — | — (desktop OpenGL runs GLES 2.0; `HostRuntime.md` §5.2) |
 
 - **Required or optional.** A capability is optional unless the manifest

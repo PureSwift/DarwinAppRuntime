@@ -78,6 +78,26 @@ import Testing
         }
     }
 
+    @Test func translatesThePhotoLibrary() throws {
+        func info(_ access: String, _ platform: ApplePlatform) throws -> [String: Any] {
+            let fixture = FixtureBundle().with([
+                "RTCapabilities": ["photoLibrary"],
+                "RTCapabilityUsage": ["photoLibrary": "perm.bluetooth"],
+                "RTCapabilityOptions": ["photoLibrary": ["access": access]],
+            ])
+            return try translator(fixture, platform).infoPlist(sdk: nil)
+        }
+        for platform in [ApplePlatform.ios, .macos] {
+            let browsing = try info("readWrite", platform)
+            #expect(browsing["NSPhotoLibraryUsageDescription"] as? String == "Looks for beacons.")
+            #expect(browsing["NSPhotoLibraryAddUsageDescription"] as? String == "Looks for beacons.")
+            let adding = try info("addOnly", platform)
+            #expect(adding["NSPhotoLibraryAddUsageDescription"] as? String == "Looks for beacons.")
+            #expect(adding["NSPhotoLibraryUsageDescription"] == nil)
+            #expect(adding["UIRequiredDeviceCapabilities"] == nil)
+        }
+    }
+
     @Test func playsAudioInTheBackground() throws {
         let fixture = FixtureBundle().with([
             "RTCapabilities": ["audio"],

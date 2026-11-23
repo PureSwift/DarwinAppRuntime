@@ -16,6 +16,7 @@ import DarwinMotion
 import DarwinNetworking
 import DarwinNFC
 import DarwinNotifications
+import DarwinPhotos
 import DarwinSecrets
 import DarwinText
 import DarwinUI
@@ -58,6 +59,7 @@ public enum HostApp {
             DarwinSecrets.self,
             DarwinAuthentication.self,
             DarwinContacts.self,
+            DarwinPhotos.self,
         ]
     }
 

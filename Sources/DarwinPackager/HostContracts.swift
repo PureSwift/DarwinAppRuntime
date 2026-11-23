@@ -16,6 +16,7 @@ import DynamicMotion
 import DynamicNFC
 import DynamicNotifications
 import DynamicNetworking
+import DynamicPhotos
 import DynamicRuntime
 import DynamicSecrets
 import DynamicText
@@ -131,6 +132,10 @@ public enum HostContracts {
             Module(name: "DarwinContacts", descriptors: [
                 ContactsProxy.descriptor, ContactRecordProxy.descriptor,
                 ContactCallbackProxy.descriptor, ContactsDelegateProxy.descriptor,
+            ]),
+            Module(name: "DarwinPhotos", descriptors: [
+                PhotosProxy.descriptor, PhotoResultsProxy.descriptor, PhotoFileGrantProxy.descriptor,
+                PhotoCallbackProxy.descriptor, PhotosDelegateProxy.descriptor,
             ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
