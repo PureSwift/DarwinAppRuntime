@@ -277,6 +277,21 @@ struct VocabularyTests {
         #expect(asked == ["A1/L0/001 fit", "B2 -"])
     }
 
+    @Test func cameraPreviewsComeFromTheProvider() {
+        #expect(CameraPreviews.provider == nil, "nothing without DarwinCamera")
+        var asked: [String] = []
+        CameraPreviews.provider = { camera, scaling in
+            asked.append("\(camera) \(scaling ?? "-")")
+            return AnyView(EmptyView())
+        }
+        defer { CameraPreviews.provider = nil }
+        _ = CameraPreviews.view(["camera": .int(2), "scaling": "fit"])
+        _ = CameraPreviews.view(["camera": .int(3)])
+        _ = CameraPreviews.view(["scaling": "fill"])
+        _ = CameraPreviews.view(["camera": "2"])
+        #expect(asked == ["2 fit", "3 -"])
+    }
+
     @Test func textEditorsComeFromTheProvider() {
         #expect(TextEditorViews.provider == nil, "nothing without DarwinText")
         var asked: [TextEditorNode] = []
