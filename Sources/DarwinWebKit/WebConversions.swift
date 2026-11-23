@@ -52,6 +52,10 @@ enum WebConversions {
 
     /// The `WebError.Code` of a failed navigation, or `nil` when it isn't a
     /// failure: one another navigation replaced, or one a policy refused.
+    /// The domain of a request in an app's scheme that the app failed,
+    /// whose code is a `WebError.Code`.
+    static let errorDomain = "org.pureswift.web"
+
     static func failure(_ error: Error) -> WebError.Code? {
         let error = error as NSError
         switch error.domain {
@@ -76,6 +80,9 @@ enum WebConversions {
             default:
                 return .unknown
             }
+        case errorDomain:
+            // A request in an app's scheme the app failed, with its code.
+            return WebError.Code(rawValue: Int32(clamping: error.code)) ?? .unknown
         case "WebKitErrorDomain":
             switch error.code {
             // Frame load interrupted: a policy refused the navigation.

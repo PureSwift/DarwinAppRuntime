@@ -327,6 +327,23 @@ OpenGLES.framework on iOS and OpenGL.framework on macOS.
 - **`load`** refuses `file:` URLs (`badURL`): files come from
   `loadResource`, which resolves the path in the app's resources, refuses
   one that leaves them, and lets the page read the file's directory.
+- **Scripts and schemes an app talks to its pages with** (`features()`
+  says `userScripts`, `scriptMessages`, `messageReplies` and `urlSchemes`):
+  - `make(_:dataStore:options:schemes:)` sets a `WKURLSchemeHandler` for
+    each scheme on the configuration before the web view is made, as
+    WebKit needs; one `WKWebView.handlesURLScheme` says it loads itself,
+    such as `https`, is left to it and logged. A request reaches
+    `startURLSchemeTask` with its headers sorted by name, and
+    `stopURLSchemeTask` when WebKit stops it; answering a stopped task
+    does nothing. A failed request fails the page's load with its
+    `WebError.Code`, in the error domain `org.pureswift.web`.
+  - User scripts are `WKUserScript`s. A one-way handler is a
+    `WKScriptMessageHandler`, and a replying one a
+    `WKScriptMessageHandlerWithReply`, both in the page's content world;
+    a name is added once. A message's body is JSON text as script results
+    are; a reply is parsed back with `JSONSerialization`, and nil resolves
+    the page's promise to `undefined`.
+  - Releasing the page rejects the replies it owes and fails its tasks.
 - **Scripts.** `evaluateJavaScript`'s value becomes JSON text with
   `JSONSerialization` (fragments allowed, keys sorted, dates as ISO 8601
   strings, as `JSON.stringify` writes them). `undefined` and functions are
