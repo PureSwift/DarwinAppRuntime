@@ -52,6 +52,7 @@ them.
 | `DarwinText` | `TextStorage`: texts the host holds and the user edits, in `TextEditor` views over `UITextView` and `NSTextView`, through AppRuntime's `HostTextStorage` |
 | `DarwinSecrets`, `DarwinAuthentication` | `Secrets` and `WebAuthentication`: the app's secrets in the Keychain, and signing in with the system's browser, through AppRuntime's `HostSecrets` and `HostWebAuthentication` |
 | `DarwinContacts` | `Contacts`: the user's address book through `CNContactStore`, through AppRuntime's `HostContacts` |
+| `DarwinPhotos` | `Photos`: the user's photo library through PhotoKit, through AppRuntime's `HostPhotos`, and the renderer's `Photo` views from PhotoKit's thumbnails |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer. It also registers AppRuntime's `RuntimeFormatting` (`LocaleInfo`, `NumberFormat`, `DateFormat` over Foundation), which the Linux host shares |
 | `DarwinPackager`, `darwin-app` | The packager |
