@@ -236,6 +236,7 @@ behavior. These rules apply across all of them:
 | `Secrets` | Security (Keychain Services), through AppRuntime's `HostSecrets` | §5.13. |
 | `WebAuthentication` | AuthenticationServices, through AppRuntime's `HostWebAuthentication` | §5.13. |
 | `Contacts` | Contacts (`CNContactStore`), through AppRuntime's `HostContacts` | §5.14. |
+| `Photos` | Photos (PhotoKit), through AppRuntime's `HostPhotos` | §5.15. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -795,6 +796,63 @@ The packager accepts `.contacts`, with `NSContactsUsageDescription` on
 both platforms, and the macOS sandbox's
 `com.apple.security.personal-information.addressbook`. `.readOnly`
 changes nothing there: the host refuses the writes.
+
+### 5.15 Photo library
+
+`DarwinPhotos` registers `HostPhotos` (`Documentation/Contracts/Photos.md`),
+which checks access before every call, keeps an app that declared adding
+alone from reading (`RTCapabilityOptions.photoLibrary.access` is
+`addOnly`), tells a photo from a video by the file's first bytes, holds
+each fetch's identifiers and reads its assets a page at a time, makes an
+original a read-only grant in `HostFiles`, and gathers a burst of changes
+into one. Its store, `SystemPhotoLibrary`, is the user's library through
+PhotoKit:
+
+- **Adding** is a `PHAssetCreationRequest` with one resource, `.photo` or
+  `.video`, copied from the file, which keeps its name. What PhotoKit
+  refuses is `invalidData`.
+- **A fetch** is `PHAsset.fetchAssets`, in an album or in the whole
+  library, by `creationDate`, newest first, of images, videos or both:
+  never audio, and never the hidden photos. Its identifiers are the
+  assets' `localIdentifier`s, which last across launches.
+- **An asset's** size is its `pixelWidth` and `pixelHeight`, and its
+  duration is 0 for a photo.
+- **Albums** are the user's own (regular, and those synced from a Mac) as
+  `.user`, and the system's smart albums with something in them as
+  `.smart`. Shared albums, the albums a sync makes of events and faces,
+  Recents (the whole library) and the hidden photos aren't listed.
+- **An original** is the asset's `.photo` or `.video` resource, not an
+  edit of it and not a Live Photo's movie, written by
+  `PHAssetResourceManager.writeData(for:toFile:options:)`, with network
+  access allowed, to a folder of its own in the host's temporary
+  directory. It keeps the library's name for it. Releasing it removes the
+  folder.
+- **Deleting** is `PHAssetChangeRequest.deleteAssets`, whose question is
+  the system's. An identifier that's gone fails the whole deletion with
+  `notFound`.
+- **Errors:** PhotoKit's codes become `cancelledByUser`, `notAuthorized`,
+  `unavailable` (a download that needs the network, or a library that went
+  away), `notFound` and `invalidData`; anything else is `unknown`.
+
+Access is `PHPhotoLibrary.authorizationStatus(for:)` at both levels: an
+app that browses is `.addOnly` while it has been given adding and not yet
+asked for reading, and one that only adds is never more. The question is
+`requestAuthorization(for:)` at the level the manifest declares. The app
+reads the status again when it becomes active; when it changed, the guest
+is told the library did. A `PHPhotoLibraryChangeObserver` is registered
+once the app may read, and its changes are `libraryChanged`.
+
+**`Photo` nodes** are `PhotoViews`, which `DarwinPhotos` provides to the
+renderer. Each asks a shared `PHCachingImageManager` for the asset at the
+node's size in pixels, filling and cropping unless the node says `fit`,
+in the opportunistic mode, which gives a small copy first and replaces it.
+A node takes the space it's offered. One the app may not see, or whose
+asset is gone, draws nothing.
+
+The packager accepts `.photoLibrary`: `NSPhotoLibraryUsageDescription` and
+`NSPhotoLibraryAddUsageDescription` for `.readWrite`, the add text alone
+for `.addOnly`, on both platforms, and the macOS sandbox's
+`com.apple.security.personal-information.photos-library`.
 
 ## 6. Built-in contracts
 
