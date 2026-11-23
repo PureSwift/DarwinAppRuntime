@@ -227,7 +227,7 @@ behavior. These rules apply across all of them:
 | `Files` | POSIX, through AppRuntime's `HostFiles` | §5.4. |
 | `Defaults` | `UserDefaults`, through AppRuntime's `HostDefaults` | §5.5. |
 | `ModelStore` | Core Data, through CoreModel's `CoreDataModel` and AppRuntime's `HostModelStore` | §5.6. |
-| `Documents` | UIKit's document picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
+| `Documents` | UIKit's document picker and PhotosUI's photo picker (iOS), `NSOpenPanel` and `NSSavePanel` (macOS), through AppRuntime's `HostDocuments` | §5.7. |
 | `Notifications`, `PushNotifications` | UserNotifications, and APNs through the app delegate, through AppRuntime's `HostNotifications` | §5.8. |
 | `MediaPlayback` | AVFoundation, AVKit and MediaPlayer, through AppRuntime's `HostMediaPlayback` | §5.9. |
 | `BackgroundTasks` | BackgroundTasks and UIKit (iOS), Foundation (macOS), through AppRuntime's `HostBackgroundTasks` | §5.10. |
@@ -442,6 +442,7 @@ pickers and bookmarks, `DarwinPickers`:
 |---|---|---|
 | Open | `UIDocumentPickerViewController(forOpeningContentTypes:asCopy: false)`: the file where it is | `NSOpenPanel`, as a sheet on the app's window |
 | Folder | the same, for `.folder` | `NSOpenPanel` choosing directories |
+| Photos | `PHPickerViewController`, filtered to images, videos or both, each pick copied to a folder of the host's own | `NSOpenPanel` for `image/*` and `video/*`, AppRuntime's default |
 | Save | `forExporting:asCopy: false` on a copy the host makes, which moves the copy where the user says and gives its URL back | `NSSavePanel`, then `HostFiles.copy(file:to:)` over what's there |
 | Bookmark | `bookmarkData()` | an app-scoped security bookmark |
 
@@ -452,6 +453,15 @@ pickers and bookmarks, `DarwinPickers`:
   `HostDocuments`, and stops when the guest lets go of the document.
 - **Writable** is what the app asked for, where the file allows it. A
   file the app is opened with is as writable as the file is.
+- **Photos.** The photo picker asks for no access to the library, and
+  lends each pick as a file that's gone once its callback returns. The
+  host copies the item's own representation, so a HEIC photo stays HEIC,
+  to a folder in its temporary directory, named for the item with its
+  type's extension. `HostDocuments` makes the copy read-only and refuses
+  to bookmark it; letting go of it removes the folder. An item that can't
+  be read is left out, and a pick none of which could be is `unknown`. An
+  empty pick is a cancel, as the document picker's is. macOS 12 has no
+  photo picker, so the open panel shows images and videos there.
 - **Bookmarks** are kept in the host's standard defaults, under
   `RTDocumentBookmarks`, by a UUID the guest holds: not in the guest's
   `Defaults` suite, which the app can read and clear. A stale one is made
