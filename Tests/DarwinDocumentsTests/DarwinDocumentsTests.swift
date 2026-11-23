@@ -184,3 +184,68 @@ final class DarwinDocumentsTests {
         #expect(try #require(read).get() == Array("from the file manager".utf8))
     }
 }
+
+/// What the photo picker gives, made into documents. The picker itself
+/// needs the iOS Simulator or a device.
+@Suite("Picked photos")
+final class PickedPhotosTests {
+
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("PickedPhotosTests-" + UUID().uuidString, isDirectory: true)
+        .resolvingSymlinksInPath()
+
+    init() throws {
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    }
+
+    deinit {
+        try? FileManager.default.removeItem(at: root)
+    }
+
+    @Test func copiesTheItemsOwnRepresentation() {
+        let photo = ["com.apple.live-photo-bundle", "public.heic", "public.jpeg"]
+        #expect(PickedPhotos.representation(of: photo, images: true, videos: false) == .heic)
+        #expect(PickedPhotos.representation(of: photo, images: false, videos: true) == nil, "not a video")
+        let video = ["com.apple.quicktime-movie", "public.mpeg-4"]
+        #expect(PickedPhotos.representation(of: video, images: false, videos: true) == .quickTimeMovie)
+        #expect(PickedPhotos.representation(of: video, images: true, videos: false) == nil, "not a photo")
+        #expect(PickedPhotos.representation(of: video, images: false, videos: false) == .quickTimeMovie, "neither: both")
+        #expect(PickedPhotos.representation(of: ["not a type", "public.png"], images: true, videos: true) == .png)
+    }
+
+    @Test func namesTheCopy() {
+        #expect(PickedPhotos.fileName("IMG_0001", type: .heic) == "IMG_0001.heic")
+        #expect(PickedPhotos.fileName("IMG_0001.HEIC", type: .heic) == "IMG_0001.HEIC", "has its extension")
+        #expect(PickedPhotos.fileName(nil, type: .jpeg) == "Photo.jpeg")
+        #expect(PickedPhotos.fileName("  ", type: .quickTimeMovie) == "Video.mov")
+        #expect(PickedPhotos.fileName("a/b:c", type: .png) == "a-b-c.png", "no folders")
+        #expect(PickedPhotos.fileName("../a", type: .png) == "Photo.png", "nothing above")
+        #expect(PickedPhotos.fileName(".hidden", type: .png) == "Photo.png")
+    }
+
+    @Test func keepsACopyUntilTheGuestLetsGo() throws {
+        let lent = root.appendingPathComponent("lent.jpeg")
+        try Data([0xFF, 0xD8, 0xFF]).write(to: lent)
+        let document = try PickedPhotos.keep(lent, suggestedName: "IMG_0001", type: .jpeg, in: root)
+        #expect(document.path != lent.path)
+        #expect(URL(fileURLWithPath: document.path).lastPathComponent == "IMG_0001.jpeg")
+        #expect(document.kind == .file)
+        #expect(!document.isWritable)
+        #expect(document.contentType == "image/jpeg")
+        #expect(FileManager.default.contents(atPath: document.path) == Data([0xFF, 0xD8, 0xFF]))
+        // The picker removes its file once its callback returns.
+        try FileManager.default.removeItem(at: lent)
+        #expect(FileManager.default.fileExists(atPath: document.path))
+
+        let folder = URL(fileURLWithPath: document.path).deletingLastPathComponent()
+        document.release?()
+        #expect(!FileManager.default.fileExists(atPath: folder.path), "the copy and its folder")
+    }
+
+    @Test func aFileThatIsGoneLeavesNothing() throws {
+        #expect(throws: (any Error).self) {
+            try PickedPhotos.keep(self.root.appendingPathComponent("gone.png"), suggestedName: nil, type: .png, in: self.root)
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: root.path).isEmpty)
+    }
+}
