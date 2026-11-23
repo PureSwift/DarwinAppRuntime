@@ -57,6 +57,7 @@ let package = Package(
         .library(name: "DarwinContacts", targets: ["DarwinContacts"]),
         .library(name: "DarwinPhotos", targets: ["DarwinPhotos"]),
         .library(name: "DarwinCamera", targets: ["DarwinCamera"]),
+        .library(name: "DarwinCalendar", targets: ["DarwinCalendar"]),
         // The app's main: links every module. The packager links it with
         // the app's library.
         .library(name: "DarwinHostApp", type: .static, targets: ["DarwinHostApp"]),
@@ -306,6 +307,16 @@ let package = Package(
             swiftSettings: host
         ),
 
+        // MARK: - Calendar
+
+        // The calendar contract: AppRuntime's `HostCalendars` over
+        // EventKit.
+        .target(
+            name: "DarwinCalendar",
+            dependencies: ["DarwinHost", runtime("RuntimeCalendar"), runtime("DynamicCalendar")],
+            swiftSettings: host
+        ),
+
         // MARK: - App
 
         .target(
@@ -313,7 +324,7 @@ let package = Package(
             dependencies: [
                 "DarwinHost", "DarwinBluetooth", "DarwinLocation", "DarwinMotion", "DarwinNFC",
                 "DarwinDevice", "DarwinNetworking", "DarwinUI", "DarwinGraphics", "DarwinWebKit",
-                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", "DarwinMedia", "DarwinBackgroundTasks", "DarwinClipboard", "DarwinText", "DarwinSecrets", "DarwinAuthentication", "DarwinContacts", "DarwinPhotos", "DarwinCamera", runtime("RuntimeFormatting"), runtime("CRuntime"),
+                "DarwinFiles", "DarwinDefaults", "DarwinModelStore", "DarwinDocuments", "DarwinNotifications", "DarwinMedia", "DarwinBackgroundTasks", "DarwinClipboard", "DarwinText", "DarwinSecrets", "DarwinAuthentication", "DarwinContacts", "DarwinPhotos", "DarwinCamera", "DarwinCalendar", runtime("RuntimeFormatting"), runtime("CRuntime"),
             ],
             swiftSettings: host
         ),
@@ -334,7 +345,7 @@ let package = Package(
                 runtime("DynamicNotifications"), runtime("DynamicMedia"), runtime("DynamicBackgroundTasks"),
                 runtime("DynamicClipboard"), runtime("DynamicText"), runtime("DynamicSecrets"),
                 runtime("DynamicAuthentication"), runtime("DynamicContacts"), runtime("DynamicPhotos"),
-                runtime("DynamicCamera"),
+                runtime("DynamicCamera"), runtime("DynamicCalendar"),
             ]
         ),
         .executableTarget(
@@ -370,6 +381,7 @@ let package = Package(
         .testTarget(name: "DarwinContactsTests", dependencies: ["DarwinContacts"], swiftSettings: host),
         .testTarget(name: "DarwinPhotosTests", dependencies: ["DarwinPhotos"], swiftSettings: host),
         .testTarget(name: "DarwinCameraTests", dependencies: ["DarwinCamera"], swiftSettings: host),
+        .testTarget(name: "DarwinCalendarTests", dependencies: ["DarwinCalendar"], swiftSettings: host),
         .testTarget(name: "DarwinPackagerTests", dependencies: ["DarwinPackager"]),
         .testTarget(name: "DarwinHostAppTests", dependencies: ["DarwinHostApp", "DarwinPackager"], swiftSettings: host),
     ]
