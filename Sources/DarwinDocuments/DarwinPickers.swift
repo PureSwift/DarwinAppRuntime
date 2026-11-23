@@ -6,6 +6,9 @@ import RuntimeHost
 import UniformTypeIdentifiers
 #if canImport(UIKit)
 import UIKit
+#if os(iOS)
+import PhotosUI
+#endif
 #elseif canImport(AppKit)
 import AppKit
 #endif
@@ -14,9 +17,11 @@ import AppKit
 /// (`HostRuntime.md` §5.7).
 ///
 /// - iOS: `UIDocumentPickerViewController`, opening in place, and its
-///   exporting form for saving.
+///   exporting form for saving. `PHPickerViewController` for the user's
+///   photos, each copied to a file the guest can read.
 /// - macOS: `NSOpenPanel` and `NSSavePanel`, as a sheet on the app's
-///   window.
+///   window. Photos are picked from the open panel, for images and
+///   videos.
 ///
 /// A picked URL's security scope starts when it's handed over, and stops
 /// when the guest lets go of the document. Main thread only.
@@ -36,6 +41,71 @@ final class DarwinPickers: NSObject, DocumentPresenter {
             completion(result.map { ($0 ?? []).map { Self.document($0, access: access) } })
         }
     }
+
+    #if os(iOS)
+    /// The system's photo picker, which asks for no access to the library.
+    /// An empty pick is a cancel, as the document picker's is.
+    func pickPhotos(images: Bool, videos: Bool, multiple: Bool, completion: @escaping (Result<[HostDocument], DocumentError>) -> Void) {
+        var configuration = PHPickerConfiguration()
+        var filters: [PHPickerFilter] = []
+        if images || !videos {
+            filters.append(.images)
+        }
+        if videos || !images {
+            filters.append(.videos)
+        }
+        configuration.filter = filters.count == 1 ? filters[0] : .any(of: filters)
+        configuration.selectionLimit = multiple ? 0 : 1
+        guard let top = Self.topController() else {
+            completion(.failure(.unsupported))
+            return
+        }
+        let controller = PHPickerViewController(configuration: configuration)
+        controller.delegate = self
+        photoCompletion = { results in
+            Self.load(results, images: images, videos: videos, completion: completion)
+        }
+        top.present(controller, animated: true)
+    }
+
+    private var photoCompletion: (([PHPickerResult]) -> Void)?
+
+    /// Copies each picked item's file, in the order picked. An item that
+    /// can't be read is left out; a pick of which none could be is
+    /// `unknown`.
+    static func load(_ results: [PHPickerResult], images: Bool, videos: Bool, completion: @escaping (Result<[HostDocument], DocumentError>) -> Void) {
+        guard !results.isEmpty else {
+            completion(.success([]))
+            return
+        }
+        final class Loaded: @unchecked Sendable {
+            var documents: [HostDocument?]
+            init(_ count: Int) { documents = Array(repeating: nil, count: count) }
+        }
+        let loaded = Loaded(results.count)
+        let group = DispatchGroup()
+        for (index, result) in results.enumerated() {
+            let provider = result.itemProvider
+            guard let type = PickedPhotos.representation(of: provider.registeredTypeIdentifiers, images: images, videos: videos) else {
+                continue
+            }
+            let name = provider.suggestedName
+            group.enter()
+            // The file is the picker's until this returns.
+            provider.loadFileRepresentation(forTypeIdentifier: type.identifier) { file, _ in
+                let document = file.flatMap { try? PickedPhotos.keep($0, suggestedName: name, type: type) }
+                DispatchQueue.main.async {
+                    loaded.documents[index] = document
+                    group.leave()
+                }
+            }
+        }
+        group.notify(queue: .main) {
+            let documents = loaded.documents.compactMap { $0 }
+            completion(documents.isEmpty ? .failure(.unknown) : .success(documents))
+        }
+    }
+    #endif
 
     func pickFolder(access: DocumentAccess, completion: @escaping (Result<HostDocument?, DocumentError>) -> Void) {
         show(.open([.folder], multiple: false, folders: true)) { result in
@@ -280,6 +350,18 @@ extension DarwinPickers: UIDocumentPickerDelegate {
 
     func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
         finish(.success(nil))
+    }
+}
+#endif
+
+#if os(iOS)
+extension DarwinPickers: PHPickerViewControllerDelegate {
+
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        let completion = photoCompletion
+        photoCompletion = nil
+        completion?(results)
     }
 }
 #endif
