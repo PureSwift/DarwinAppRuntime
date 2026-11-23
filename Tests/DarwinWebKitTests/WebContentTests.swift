@@ -45,6 +45,26 @@ final class RecordingWebDelegate: WebContentDelegate {
         events.append("script \(request) \(result ?? "nil") \(error ?? "nil")")
     }
 
+    /// Answers each message that waits for a reply, by its number.
+    var onMessage: ((_ content: any WebContent, _ name: String, _ body: String?, _ reply: Int32) -> Void)?
+
+    /// Answers each request in the app's schemes.
+    var onTask: ((_ content: any WebContent, _ task: Int32, _ url: String, _ method: String, _ headers: [String], _ body: [UInt8]?) -> Void)?
+
+    func didReceiveMessage(_ content: any WebContent, name: String, body: String?, reply: Int32) {
+        events.append("message \(name) \(body ?? "undefined")\(reply == 0 ? "" : " reply")")
+        onMessage?(content, name, body, reply)
+    }
+
+    func startURLSchemeTask(_ content: any WebContent, task: Int32, url: String, method: String, headers: [String], body: [UInt8]?) {
+        events.append("task \(task) \(method) \(url)")
+        onTask?(content, task, url, method, headers, body)
+    }
+
+    func stopURLSchemeTask(_ content: any WebContent, task: Int32) {
+        events.append("stop task \(task)")
+    }
+
     /// Waits up to ten seconds for an event that starts with `prefix`.
     @MainActor
     func wait(for prefix: String, after count: Int = 0) async throws {
@@ -181,5 +201,103 @@ struct WebContentTests {
         #expect(delegate.events.contains { $0.hasPrefix("url file://") && $0.hasSuffix("help/index.html") })
         page.loadResource("help/missing.html")
         #expect(delegate.events.last == "fail 5")
+    }
+}
+
+// MARK: - Scripts and schemes
+
+extension WebContentTests {
+
+    @Test func saysWhatItDoes() {
+        #expect(WebFeatures(rawValue: DarwinWebContent.features()) == [.userScripts, .scriptMessages, .messageReplies, .urlSchemes])
+    }
+
+    @Test func runsUserScriptsAndPassesOnMessages() async throws {
+        let delegate = RecordingWebDelegate()
+        delegate.onMessage = { content, name, body, reply in
+            guard reply != 0 else { return }
+            if body == "0" {
+                content.replyToMessage(reply, result: nil, error: "no zeros")
+            } else {
+                content.replyToMessage(reply, result: #"{"echo":\#(body ?? "null")}"#, error: nil)
+            }
+        }
+        let page = DarwinWebContent.make(delegate, dataStore: 0, options: 0, schemes: [])
+        page.addUserScript("window.webkit.messageHandlers.note.postMessage({ early: true })", atDocumentStart: true, mainFrameOnly: true)
+        page.addMessageHandler("note", replies: false)
+        page.addMessageHandler("ask", replies: true)
+        page.addMessageHandler("ask", replies: false)
+        page.loadHTML("""
+            <script>
+            const ask = (n) => window.webkit.messageHandlers.ask.postMessage(n)
+                .then(v => JSON.stringify(v), e => 'rejected ' + e.message);
+            Promise.all([ask(5), ask(0)]).then(r => { document.title = r.join(' | '); });
+            </script>
+            """, baseURL: nil)
+        try await delegate.wait(for: #"title {"echo":5} | rejected no zeros"#)
+        #expect(delegate.events.contains(#"message note {"early":true}"#), "the user script ran before the page's own")
+        #expect(delegate.events.contains("message ask 5 reply"))
+        // Answering again, or a number never given, does nothing.
+        page.replyToMessage(1, result: "1", error: nil)
+        page.replyToMessage(99, result: "1", error: nil)
+
+        page.removeMessageHandler("ask")
+        page.removeAllUserScripts()
+        delegate.events.removeAll()
+        page.loadHTML("<script>document.title = String(window.webkit.messageHandlers.ask === undefined)</script>", baseURL: nil)
+        try await delegate.wait(for: "title true")
+        #expect(!delegate.events.contains { $0.hasPrefix("message") }, "no user script, no handler")
+    }
+
+    @Test func repliesThatArentJSONOrUndefined() async throws {
+        let delegate = RecordingWebDelegate()
+        var answers = ["{ not json", nil]
+        delegate.onMessage = { content, _, _, reply in
+            content.replyToMessage(reply, result: answers.removeFirst(), error: nil)
+        }
+        let page = DarwinWebContent.make(delegate, dataStore: 0, options: 0, schemes: [])
+        page.addMessageHandler("ask", replies: true)
+        page.loadHTML("""
+            <script>
+            const ask = () => window.webkit.messageHandlers.ask.postMessage(1)
+                .then(v => v === undefined ? 'undefined' : JSON.stringify(v), e => 'rejected ' + e.message);
+            ask().then(a => ask().then(b => { document.title = a + ' | ' + b; }));
+            </script>
+            """, baseURL: nil)
+        // Nil resolves the promise to `undefined`, as the contract says.
+        try await delegate.wait(for: "title rejected the reply isn't JSON | undefined")
+    }
+
+    @Test func servesAPageFromAnAppScheme() async throws {
+        let delegate = RecordingWebDelegate()
+        delegate.onTask = { content, task, url, method, headers, body in
+            switch url {
+            case "test-darwin-app:/index.html":
+                content.finishURLSchemeTask(task, status: 200, contentType: "text/html", headers: [],
+                                            body: Array("<title>App</title><script>fetch('test-darwin-app:/data', { method: 'POST', body: 'hi' }).then(r => r.text().then(t => { document.title = r.status + ' ' + r.headers.get('x-answer') + ' ' + t; }))</script>".utf8))
+            case "test-darwin-app:/data":
+                #expect(method == "POST")
+                #expect(body == Array("hi".utf8))
+                content.finishURLSchemeTask(task, status: 201, contentType: "text/plain",
+                                            headers: ["X-Answer", "yes", "Access-Control-Allow-Origin", "*", "Access-Control-Expose-Headers", "X-Answer"],
+                                            body: Array("stored".utf8))
+            default:
+                content.failURLSchemeTask(task, error: WebError.Code.notPermitted.rawValue, message: "not for you")
+            }
+        }
+        let page = DarwinWebContent.make(delegate, dataStore: 0, options: 0, schemes: ["Test-Darwin-App", "https"])
+        page.load("test-darwin-app:/index.html")
+        try await delegate.wait(for: "title 201 yes stored")
+        #expect(delegate.events.contains("url test-darwin-app:/index.html"))
+        #expect(delegate.events.contains("task 1 GET test-darwin-app:/index.html"))
+        #expect(delegate.events.contains("task 2 POST test-darwin-app:/data"))
+
+        let start = delegate.events.count
+        page.load("test-darwin-app:/forbidden")
+        try await delegate.wait(for: "fail", after: start)
+        #expect(delegate.events.dropFirst(start).contains("fail \(WebError.Code.notPermitted.rawValue)"), "\(delegate.events)")
+        // A task answered already, or never asked, is let be.
+        page.finishURLSchemeTask(1, status: 200, contentType: nil, headers: [], body: [])
+        page.failURLSchemeTask(99, error: 0, message: "")
     }
 }
