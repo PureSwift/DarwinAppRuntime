@@ -283,6 +283,7 @@ host runtime.
 | `network` | — (App Transport Security defaults) | — | sandbox: `com.apple.security.network.client` |
 | `localNetwork` | `NSLocalNetworkUsageDescription`, `NSBonjourServices` from extras | — | — |
 | `camera` | `NSCameraUsageDescription` | — | `NSCameraUsageDescription`; sandbox: `com.apple.security.device.camera` |
+| `microphone` | `NSMicrophoneUsageDescription` | — | the same key; sandbox: `com.apple.security.device.audio-input` |
 | `notifications` | `UIBackgroundModes: remote-notification` with `wakesApp` | `aps-environment` when remote | `com.apple.developer.aps-environment` |
 | `audio` | `UIBackgroundModes: audio` with `background` | — | — (a Mac app isn't suspended) |
 | `backgroundTasks` | `BGTaskSchedulerPermittedIdentifiers` from the manifest's tasks; `UIBackgroundModes` with `fetch` for a refresh task and `processing` for a processing task | — | — |
