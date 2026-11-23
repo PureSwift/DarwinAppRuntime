@@ -210,6 +210,24 @@ public enum VideoPlayers {
     }
 }
 
+/// What `Photo` nodes show (`RenderIR.md`): an asset of the user's photo
+/// library, by its identifier, filling its bounds or fitting in them
+/// (`scaling`). `DarwinPhotos` provides them when the app uses `Photos`;
+/// without it, a `Photo` shows nothing.
+public enum PhotoViews {
+
+    /// Makes the view of the asset with an identifier, scaled as the node
+    /// asks.
+    public static var provider: ((_ asset: String, _ scaling: String?) -> AnyView)?
+
+    static func view(_ props: [String: PropValue]) -> AnyView {
+        guard let provider, let asset = props["asset"]?.string, !asset.isEmpty else {
+            return AnyView(EmptyView())
+        }
+        return provider(asset, props["scaling"]?.string)
+    }
+}
+
 /// A `Shape` node: the SwiftUI shape, filled or stroked.
 struct ShapeNodeView: View {
 
