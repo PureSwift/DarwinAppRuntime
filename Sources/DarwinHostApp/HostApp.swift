@@ -1,6 +1,7 @@
 import DarwinAuthentication
 import DarwinBackgroundTasks
 import DarwinBluetooth
+import DarwinCamera
 import DarwinClipboard
 import DarwinContacts
 import DarwinDefaults
@@ -60,6 +61,7 @@ public enum HostApp {
             DarwinAuthentication.self,
             DarwinContacts.self,
             DarwinPhotos.self,
+            DarwinCamera.self,
         ]
     }
 
