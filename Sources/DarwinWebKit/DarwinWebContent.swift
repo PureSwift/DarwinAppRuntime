@@ -25,7 +25,13 @@ import AppKit
 /// `shouldNavigate` is asked from `decidePolicyFor`, except for the
 /// navigation the guest itself just started. Without the `network`
 /// capability, remote loads fail with `notPermitted` and a content rule
-/// list blocks remote subresources. Every call is on the main thread.
+/// list blocks remote subresources.
+///
+/// It runs the app's user scripts (`WKUserScript`), passes on its script
+/// messages (`WKScriptMessageHandler`, and `WKScriptMessageHandlerWithReply`
+/// for replies) and its URL schemes' requests (`WKURLSchemeHandler`, set on
+/// the configuration the web view is made with). Every call is on the main
+/// thread.
 public final class DarwinWebContent: NSObject, WebContent {
 
     let delegate: any WebContentDelegate
@@ -57,15 +63,46 @@ public final class DarwinWebContent: NSObject, WebContent {
 
     private var pending: [() -> Void] = []
 
-    init(delegate: any WebContentDelegate, id: Int32) {
+    // MARK: Scripts and schemes
+
+    /// Whether each handler replies, by name: WebKit takes a name once.
+    private var messageHandlers: [String: Bool] = [:]
+
+    /// The user content controller holds its handlers; this doesn't hold
+    /// the page.
+    private lazy var messages = MessageRelay(page: self)
+
+    /// Replies the page awaits, by the number the guest has for each.
+    private var replies: [Int32: (Any?, String?) -> Void] = [:]
+
+    private var nextReply: Int32 = 1
+
+    /// Requests in the app's schemes not yet answered or stopped, likewise.
+    private var tasks: [Int32: any WKURLSchemeTask] = [:]
+
+    private var taskNumbers: [ObjectIdentifier: Int32] = [:]
+
+    private var nextTask: Int32 = 1
+
+    init(delegate: any WebContentDelegate, id: Int32, schemes: [String] = []) {
         self.delegate = delegate
         self.id = id
         let configuration = WKWebViewConfiguration()
         #if os(iOS)
         configuration.allowsInlineMediaPlayback = true
         #endif
+        // WebKit takes a scheme's handler only before the view is made.
+        let schemeRelay = SchemeRelay()
+        for scheme in Set(schemes.map { $0.lowercased() }).sorted() {
+            guard !WKWebView.handlesURLScheme(scheme) else {
+                AppHost.logger.warning("web: \(scheme, privacy: .public) can't be an app's scheme")
+                continue
+            }
+            configuration.setURLSchemeHandler(schemeRelay, forURLScheme: scheme)
+        }
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
+        schemeRelay.page = self
         webView.navigationDelegate = self
         webView.uiDelegate = self
         observe()
@@ -86,6 +123,12 @@ public final class DarwinWebContent: NSObject, WebContent {
     }
 
     deinit {
+        for reply in replies.values {
+            reply(nil, "the page went away")
+        }
+        for task in tasks.values {
+            task.didFailWithError(Self.error(.cancelled, "the page went away"))
+        }
         observations.forEach { $0.invalidate() }
         let webView = self.webView
         webView.navigationDelegate = nil
@@ -124,13 +167,25 @@ public final class DarwinWebContent: NSObject, WebContent {
     // MARK: WebContent
 
     public static func make(_ delegate: any WebContentDelegate) -> DarwinWebContent {
+        make(delegate, dataStore: 0, options: 0, schemes: [])
+    }
+
+    /// The default store and no options, as `features()` offers no others,
+    /// answering `schemes`. A scheme WebKit loads itself is left to it.
+    public static func make(_ delegate: any WebContentDelegate, dataStore: Int32, options: Int32, schemes: [String]) -> DarwinWebContent {
         nextID &+= 1
         if nextID <= 0 {
             nextID = 1
         }
-        let content = DarwinWebContent(delegate: delegate, id: nextID)
+        let content = DarwinWebContent(delegate: delegate, id: nextID, schemes: schemes)
         live[content.id] = Weak(content)
         return content
+    }
+
+    /// What this host does beyond loading a page: what an app talks to its
+    /// pages with. None of a browser's or a mail reader's features yet.
+    public static func features() -> Int32 {
+        WebFeatures([.userScripts, .scriptMessages, .messageReplies, .urlSchemes]).rawValue
     }
 
     public func identifier() -> Int32 {
@@ -315,6 +370,155 @@ public final class DarwinWebContent: NSObject, WebContent {
 }
 
 // MARK: - WKNavigationDelegate
+
+// MARK: - Scripts and schemes
+
+extension DarwinWebContent {
+
+    public func addUserScript(_ source: String, atDocumentStart: Bool, mainFrameOnly: Bool) {
+        let script = WKUserScript(source: source, injectionTime: atDocumentStart ? .atDocumentStart : .atDocumentEnd, forMainFrameOnly: mainFrameOnly)
+        webView.configuration.userContentController.addUserScript(script)
+    }
+
+    public func removeAllUserScripts() {
+        webView.configuration.userContentController.removeAllUserScripts()
+    }
+
+    public func addMessageHandler(_ name: String, replies: Bool) {
+        // A name has one handler: WebKit raises an exception for a second.
+        guard messageHandlers[name] == nil else { return }
+        messageHandlers[name] = replies
+        let controller = webView.configuration.userContentController
+        if replies {
+            controller.addScriptMessageHandler(messages, contentWorld: .page, name: name)
+        } else {
+            controller.add(messages, contentWorld: .page, name: name)
+        }
+    }
+
+    public func removeMessageHandler(_ name: String) {
+        guard messageHandlers.removeValue(forKey: name) != nil else { return }
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: name, contentWorld: .page)
+    }
+
+    public func replyToMessage(_ reply: Int32, result: String?, error: String?) {
+        guard let handler = replies.removeValue(forKey: reply) else { return }
+        if let error {
+            return handler(nil, error)
+        }
+        guard let result else {
+            return handler(nil, nil)
+        }
+        guard let value = try? JSONSerialization.jsonObject(with: Data(result.utf8), options: .fragmentsAllowed) else {
+            return handler(nil, "the reply isn't JSON")
+        }
+        handler(value, nil)
+    }
+
+    public func finishURLSchemeTask(_ task: Int32, status: Int32, contentType: String?, headers: [String], body: [UInt8]) {
+        guard let schemeTask = takeTask(task), let url = schemeTask.request.url else { return }
+        var fields: [String: String] = [:]
+        for index in stride(from: 0, to: headers.count - 1, by: 2) {
+            let name = headers[index]
+            let value = headers[index + 1]
+            fields[name] = fields[name].map { "\($0), \(value)" } ?? value
+        }
+        if let contentType, !fields.keys.contains(where: { $0.caseInsensitiveCompare("Content-Type") == .orderedSame }) {
+            fields["Content-Type"] = contentType
+        }
+        guard let response = HTTPURLResponse(url: url, statusCode: Int(status), httpVersion: "HTTP/1.1", headerFields: fields) else {
+            return schemeTask.didFailWithError(Self.error(.unknown, "status \(status) isn't one"))
+        }
+        schemeTask.didReceive(response)
+        schemeTask.didReceive(Data(body))
+        schemeTask.didFinish()
+    }
+
+    public func failURLSchemeTask(_ task: Int32, error: Int32, message: String) {
+        takeTask(task)?.didFailWithError(Self.error(WebError.Code(rawValue: error) ?? .unknown, message))
+    }
+
+    /// What a page sees for a failed request, which a failed navigation
+    /// reports as its code (`WebConversions.failure`).
+    static func error(_ code: WebError.Code, _ message: String) -> NSError {
+        NSError(domain: WebConversions.errorDomain, code: Int(code.rawValue), userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    fileprivate func received(_ message: WKScriptMessage, reply: ((Any?, String?) -> Void)?) {
+        var number: Int32 = 0
+        if let reply {
+            number = nextReply
+            nextReply = nextReply == .max ? 1 : nextReply + 1
+            replies[number] = reply
+        }
+        delegate.didReceiveMessage(self, name: message.name, body: WebConversions.json(message.body), reply: number)
+    }
+
+    fileprivate func start(_ task: any WKURLSchemeTask) {
+        let number = nextTask
+        nextTask = nextTask == .max ? 1 : nextTask + 1
+        tasks[number] = task
+        taskNumbers[ObjectIdentifier(task)] = number
+        let request = task.request
+        let headers = (request.allHTTPHeaderFields ?? [:]).sorted { $0.key < $1.key }.flatMap { [$0.key, $0.value] }
+        delegate.startURLSchemeTask(self, task: number, url: request.url?.absoluteString ?? "", method: request.httpMethod ?? "GET",
+                                    headers: headers, body: request.httpBody.map { [UInt8]($0) })
+    }
+
+    fileprivate func stop(_ task: any WKURLSchemeTask) {
+        guard let number = taskNumbers.removeValue(forKey: ObjectIdentifier(task)) else { return }
+        tasks[number] = nil
+        delegate.stopURLSchemeTask(self, task: number)
+    }
+
+    /// A task still wanted, which may be answered once.
+    @discardableResult
+    private func takeTask(_ number: Int32) -> (any WKURLSchemeTask)? {
+        guard let task = tasks.removeValue(forKey: number) else { return nil }
+        taskNumbers[ObjectIdentifier(task)] = nil
+        return task
+    }
+}
+
+/// The page's script message handler. WebKit's user content controller
+/// holds it; it doesn't hold the page.
+private final class MessageRelay: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
+
+    weak var page: DarwinWebContent?
+
+    init(page: DarwinWebContent) {
+        self.page = page
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        page?.received(message, reply: nil)
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage,
+                               replyHandler: @escaping @MainActor (Any?, String?) -> Void) {
+        guard let page else {
+            return replyHandler(nil, "the page went away")
+        }
+        page.received(message, reply: replyHandler)
+    }
+}
+
+/// The page's URL scheme handler, which the web view's configuration holds.
+private final class SchemeRelay: NSObject, WKURLSchemeHandler {
+
+    weak var page: DarwinWebContent?
+
+    func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        guard let page else {
+            return urlSchemeTask.didFailWithError(DarwinWebContent.error(.cancelled, "the page went away"))
+        }
+        page.start(urlSchemeTask)
+    }
+
+    func webView(_ webView: WKWebView, stop urlSchemeTask: any WKURLSchemeTask) {
+        page?.stop(urlSchemeTask)
+    }
+}
 
 extension DarwinWebContent: WKNavigationDelegate {
 
