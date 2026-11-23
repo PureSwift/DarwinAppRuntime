@@ -81,6 +81,12 @@ public enum Capabilities {
                 name: "contacts", needsUsage: true,
                 sandboxEntitlements: ["com.apple.security.personal-information.addressbook"]
             ),
+            // The user's calendars (`DarwinCalendar`). `.writeOnly` asks the
+            // system for adding alone.
+            CapabilityRule(
+                name: "calendars", needsUsage: true,
+                sandboxEntitlements: ["com.apple.security.personal-information.calendars"]
+            ),
             // The user's photo library (`DarwinPhotos`). `.addOnly` asks the
             // system for adding alone.
             CapabilityRule(
@@ -131,6 +137,14 @@ public enum Capabilities {
             return ["NSMicrophoneUsageDescription"]
         case ("contacts", _):
             return ["NSContactsUsageDescription"]
+        case ("calendars", _):
+            // iOS 17 and macOS 14 ask by level; before them, one key asks
+            // for everything, and the host keeps a write-only app from
+            // reading.
+            if options["access"] == "writeOnly" {
+                return ["NSCalendarsWriteOnlyAccessUsageDescription", "NSCalendarsUsageDescription"]
+            }
+            return ["NSCalendarsFullAccessUsageDescription", "NSCalendarsUsageDescription"]
         case ("photoLibrary", _):
             // Browsing asks for reading, and an app that browses may add too.
             if options["access"] == "addOnly" {

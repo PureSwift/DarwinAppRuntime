@@ -114,6 +114,27 @@ import Testing
         #expect(ios["UIRequiredDeviceCapabilities"] as? [String] == ["microphone"])
     }
 
+    @Test func translatesTheCalendars() throws {
+        func info(_ access: String, _ platform: ApplePlatform) throws -> [String: Any] {
+            let fixture = FixtureBundle().with([
+                "RTCapabilities": ["calendars"],
+                "RTCapabilityUsage": ["calendars": "perm.bluetooth"],
+                "RTCapabilityOptions": ["calendars": ["access": access]],
+            ])
+            return try translator(fixture, platform).infoPlist(sdk: nil)
+        }
+        for platform in [ApplePlatform.ios, .macos] {
+            let full = try info("full", platform)
+            #expect(full["NSCalendarsFullAccessUsageDescription"] as? String == "Looks for beacons.")
+            #expect(full["NSCalendarsUsageDescription"] as? String == "Looks for beacons.")
+            #expect(full["NSCalendarsWriteOnlyAccessUsageDescription"] == nil)
+            let adding = try info("writeOnly", platform)
+            #expect(adding["NSCalendarsWriteOnlyAccessUsageDescription"] as? String == "Looks for beacons.")
+            #expect(adding["NSCalendarsUsageDescription"] as? String == "Looks for beacons.")
+            #expect(adding["NSCalendarsFullAccessUsageDescription"] == nil)
+        }
+    }
+
     @Test func playsAudioInTheBackground() throws {
         let fixture = FixtureBundle().with([
             "RTCapabilities": ["audio"],

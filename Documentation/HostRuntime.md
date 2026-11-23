@@ -238,6 +238,7 @@ behavior. These rules apply across all of them:
 | `Contacts` | Contacts (`CNContactStore`), through AppRuntime's `HostContacts` | §5.14. |
 | `Photos` | Photos (PhotoKit), through AppRuntime's `HostPhotos` | §5.15. |
 | `CameraCapture` | AVFoundation (`AVCaptureSession`), through AppRuntime's `HostCameraCapture` | §5.16. |
+| `Calendars` | EventKit (`EKEventStore`), through AppRuntime's `HostCalendars` | §5.17. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -921,6 +922,67 @@ The packager accepts `.microphone`: `NSMicrophoneUsageDescription`, the
 `microphone` device capability when it's required, and the macOS
 sandbox's `com.apple.security.device.audio-input`. `.camera` was there
 already.
+
+### 5.17 Calendars
+
+`DarwinCalendar` registers `HostCalendars`
+(`Documentation/Contracts/Calendars.md`), which checks access before every
+call and caps it at what the manifest declares
+(`RTCapabilityOptions.calendars.access`, `full` or `writeOnly`), refuses
+backward dates, ranges over four years and a changed rule for one
+occurrence, rounds an all-day event out to whole days, sorts what it
+returns, and gathers a burst of changes into one. Its store,
+`SystemCalendarStore`, is the user's calendars through EventKit:
+
+- **Calendars** are `calendars(for: .event)`, in EventKit's order. Each
+  one's account is its source's title, or empty for one only on the
+  device; its colour is its `cgColor` in sRGB; it's writable when it
+  `allowsContentModifications`. The default is
+  `defaultCalendarForNewEvents`.
+- **Events** are `events(matching:)` over
+  `predicateForEvents(withStart:end:calendars:)`: EventKit's own expansion
+  of repeats, one `EKEvent` per occurrence. The predicate is a day wider
+  each side, and what comes back is kept to what overlaps the range in
+  the contract's terms. An event's identifier is its `eventIdentifier`,
+  which its occurrences share, and an occurrence is its `occurrenceDate`.
+  `event(withID:)` is `event(withIdentifier:)`, the first occurrence.
+- **All-day events** are the device's days in EventKit and UTC midnights
+  in the contract. They're written as the Calendar app writes them, from
+  the first day's midnight to the last day's 23:59:59, and read either
+  way.
+- **A timed event's zone** is its `timeZone`. None in the contract is the
+  device's zone, not EventKit's floating time.
+- **Saving** finds the event, and for one occurrence searches near its
+  original start and then a year each way. It writes only the fields the
+  guest's value changed, so attendees, attachments and an alarm at a
+  fixed time stay as they were, then `save(_:span:commit:)` with the
+  contract's span. One occurrence stays in its series' calendar.
+  Removing is `remove(_:span:commit:)`. A refusal resets the store, and
+  becomes `readOnly`, `invalidDates`, `notFound`, `invalidSpan` or
+  `notAuthorized`.
+- **Rules** become `EKRecurrenceRule`s and back: daily, weekly, monthly
+  and yearly, with an interval, days of the week (with their week
+  number), days of the month, months, weeks and days of the year, set
+  positions, and a count or an end date to the second. EventKit ignores
+  a part that doesn't go with the frequency, so such a rule, an hourly
+  one, and any part it has no place for are `unsupportedRecurrence`.
+  `WKST=MO` is accepted and not kept.
+- **Alarms** are relative: one at a fixed time is read as minutes before
+  the start, and one after the start as at it.
+
+Access is `EKEventStore.authorizationStatus(for: .event)`, read by raw
+value since iOS 17 renamed and added levels. The question is
+`requestFullAccessToEvents` or `requestWriteOnlyAccessToEvents` on iOS 17
+and macOS 14, and `requestAccess(to: .event)` before them. After it, and
+when the app becomes active with different access, the store is reset
+before its next call, and the guest is told the store changed.
+`EKEventStoreChanged` is `storeChanged`.
+
+The packager accepts `.calendars`: `NSCalendarsFullAccessUsageDescription`
+for `.full` and `NSCalendarsWriteOnlyAccessUsageDescription` for
+`.writeOnly`, each with `NSCalendarsUsageDescription` for systems before
+the two levels, on both platforms, and the macOS sandbox's
+`com.apple.security.personal-information.calendars`.
 
 ## 6. Built-in contracts
 
