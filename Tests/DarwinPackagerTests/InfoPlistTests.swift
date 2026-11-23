@@ -98,6 +98,22 @@ import Testing
         }
     }
 
+    @Test func translatesTheCameraAndTheMicrophone() throws {
+        let fixture = FixtureBundle().with([
+            "RTCapabilities": ["camera", "microphone"],
+            "RTCapabilityUsage": ["camera": "perm.bluetooth", "microphone": "perm.bluetooth"],
+            "RTCapabilityOptions": ["microphone": ["required": "true"]],
+        ])
+        for platform in [ApplePlatform.ios, .macos] {
+            let info = try translator(fixture, platform).infoPlist(sdk: nil)
+            #expect(info["NSCameraUsageDescription"] as? String == "Looks for beacons.")
+            #expect(info["NSMicrophoneUsageDescription"] as? String == "Looks for beacons.")
+        }
+        let ios = try translator(fixture, .ios).infoPlist(sdk: nil)
+        // Only what's marked required: the camera is optional here.
+        #expect(ios["UIRequiredDeviceCapabilities"] as? [String] == ["microphone"])
+    }
+
     @Test func playsAudioInTheBackground() throws {
         let fixture = FixtureBundle().with([
             "RTCapabilities": ["audio"],

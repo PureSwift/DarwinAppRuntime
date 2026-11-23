@@ -237,6 +237,7 @@ behavior. These rules apply across all of them:
 | `WebAuthentication` | AuthenticationServices, through AppRuntime's `HostWebAuthentication` | §5.13. |
 | `Contacts` | Contacts (`CNContactStore`), through AppRuntime's `HostContacts` | §5.14. |
 | `Photos` | Photos (PhotoKit), through AppRuntime's `HostPhotos` | §5.15. |
+| `CameraCapture` | AVFoundation (`AVCaptureSession`), through AppRuntime's `HostCameraCapture` | §5.16. |
 | `WebContent` | WebKit | §5.3. |
 
 ### 5.2 Graphics
@@ -853,6 +854,73 @@ The packager accepts `.photoLibrary`: `NSPhotoLibraryUsageDescription` and
 `NSPhotoLibraryAddUsageDescription` for `.readWrite`, the add text alone
 for `.addOnly`, on both platforms, and the macOS sandbox's
 `com.apple.security.personal-information.photos-library`.
+
+### 5.16 Camera
+
+`DarwinCamera` registers `HostCameraCapture`
+(`Documentation/Contracts/Camera.md`), which finds each file through
+`HostFiles` and makes the folders above it, keeps one camera on, one photo
+at a time and one recording, answers each request once, refuses sound
+without `.microphone` in the manifest, clamps the zoom, remembers the
+flash, and turns the camera off for the background and back on. Its
+platform, `AVCameraPlatform`, is AVFoundation's cameras:
+
+- **Positions** are the devices an `AVCaptureDevice.DiscoverySession`
+  finds. On iOS the back camera is the widest virtual device there
+  (`builtInTripleCamera`, `builtInDualWideCamera`, `builtInDualCamera`,
+  then `builtInWideAngleCamera`), the front is the TrueDepth or wide angle
+  camera, and an external camera is iPadOS 17's. On a Mac the built-in
+  camera is the front one; any other, plugged in, a display's or an
+  iPhone's through Continuity, is external. A Mac has no back camera.
+- **Access** is `AVCaptureDevice.authorizationStatus(for:)`, for `.video`
+  and for `.audio`, and the question is `requestAccess(for:)`. The
+  module's permission providers replace the host's own camera one, and
+  add the microphone's.
+
+Each `CameraCapture` gets an `AVCameraEngine`: one `AVCaptureSession`,
+configured, started and stopped on a queue of its own.
+
+- **Starting** puts the position's device in the session with the
+  `.photo` preset and an `AVCapturePhotoOutput`. Starting another
+  position replaces the device.
+- **Zoom:** the guest's 1 is the main lens. On a virtual device with an
+  ultra wide, that's its first switch-over factor, so the range starts
+  at 0.5; zooming crosses lenses by itself. The range ends at the
+  device's maximum or 15 times the main lens, whichever is less. A Mac's
+  camera doesn't zoom.
+- **Photos** are JPEG, at the largest size the device's format makes
+  (`maxPhotoDimensions`), with the flash if the camera has one. The
+  output's connection is turned to how the device is held, so the file
+  displays upright, and it isn't mirrored. The size reported is the
+  upright picture's, read back from the file.
+- **Video** adds an `AVCaptureMovieFileOutput` with the `.high` preset,
+  and the microphone if sound was asked for, for as long as the
+  recording lasts. On iOS the video is H.264. The movie is written to a
+  temporary file, then rewrapped as MP4 at the place asked for, without
+  being encoded again; one that can't be rewrapped is kept as a
+  QuickTime movie, and `mimeType` says so. A recording the system cut
+  short (an interruption, a camera unplugged, a full disk) is still
+  kept, with the reason.
+- **Interruptions** (`AVCaptureSessionWasInterrupted` and
+  `InterruptionEnded`) are the system taking the camera: a call, another
+  app, Split View. Leaving the front isn't one of them: the module
+  reports that itself from `UIApplication`'s background and foreground
+  notifications. A Mac app isn't suspended: its camera goes off while
+  the app is hidden. A session runtime error fails the camera, except
+  the media services restarting, which restarts the session.
+
+**`CameraPreview` nodes** are `CameraPreviews`, which `DarwinCamera`
+provides to the renderer: an `AVCaptureVideoPreviewLayer` on the
+camera's session, filling and cropping unless the node says `fit`, and
+turned with the interface. AVFoundation mirrors the front camera's
+picture. A tap sets the focus and exposure point; on iOS a pinch zooms,
+and the camera reports the zoom to the guest. The preview shows nothing
+while the camera is off.
+
+The packager accepts `.microphone`: `NSMicrophoneUsageDescription`, the
+`microphone` device capability when it's required, and the macOS
+sandbox's `com.apple.security.device.audio-input`. `.camera` was there
+already.
 
 ## 6. Built-in contracts
 

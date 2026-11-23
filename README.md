@@ -53,6 +53,7 @@ them.
 | `DarwinSecrets`, `DarwinAuthentication` | `Secrets` and `WebAuthentication`: the app's secrets in the Keychain, and signing in with the system's browser, through AppRuntime's `HostSecrets` and `HostWebAuthentication` |
 | `DarwinContacts` | `Contacts`: the user's address book through `CNContactStore`, through AppRuntime's `HostContacts` |
 | `DarwinPhotos` | `Photos`: the user's photo library through PhotoKit, through AppRuntime's `HostPhotos`, and the renderer's `Photo` views from PhotoKit's thumbnails |
+| `DarwinCamera` | `CameraCapture`: the device's cameras through `AVCaptureSession`, through AppRuntime's `HostCameraCapture`, and the renderer's `CameraPreview` views |
 | `DarwinGraphics`, `CDarwinGL` | `Surface`: OpenGL ES 2.0 in a `GLSurface` view, with touch, mouse and keyboard input |
 | `DarwinHostApp` | The app's `main`: a SwiftUI app that starts the guest and shows its renderer. It also registers AppRuntime's `RuntimeFormatting` (`LocaleInfo`, `NumberFormat`, `DateFormat` over Foundation), which the Linux host shares |
 | `DarwinPackager`, `darwin-app` | The packager |

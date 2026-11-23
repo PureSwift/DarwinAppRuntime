@@ -59,6 +59,11 @@ public enum Capabilities {
                 name: "camera", needsUsage: true, requiredDeviceCapability: "still-camera",
                 sandboxEntitlements: ["com.apple.security.device.camera"]
             ),
+            // Sound for the camera's videos (`DarwinCamera`).
+            CapabilityRule(
+                name: "microphone", needsUsage: true, requiredDeviceCapability: "microphone",
+                sandboxEntitlements: ["com.apple.security.device.audio-input"]
+            ),
             CapabilityRule(name: "notifications"),
             // Sound and pictures through the media players (`DarwinMedia`).
             // It prompts for nothing; `background` plays on when the app
@@ -122,6 +127,8 @@ public enum Capabilities {
             return ["NSLocalNetworkUsageDescription"]
         case ("camera", _):
             return ["NSCameraUsageDescription"]
+        case ("microphone", _):
+            return ["NSMicrophoneUsageDescription"]
         case ("contacts", _):
             return ["NSContactsUsageDescription"]
         case ("photoLibrary", _):

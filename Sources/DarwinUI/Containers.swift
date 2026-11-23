@@ -228,6 +228,24 @@ public enum PhotoViews {
     }
 }
 
+/// What `CameraPreview` nodes show (`RenderIR.md`): a camera's picture, by
+/// its `identifier()`, filling its bounds or fitting in them (`scaling`).
+/// `DarwinCamera` provides them when the app uses `CameraCapture`;
+/// without it, a `CameraPreview` shows nothing.
+public enum CameraPreviews {
+
+    /// Makes the preview of the camera with an identifier, scaled as the
+    /// node asks.
+    public static var provider: ((_ camera: Int32, _ scaling: String?) -> AnyView)?
+
+    static func view(_ props: [String: PropValue]) -> AnyView {
+        guard let provider, let value = props["camera"]?.int, let identifier = Int32(exactly: value) else {
+            return AnyView(EmptyView())
+        }
+        return provider(identifier, props["scaling"]?.string)
+    }
+}
+
 /// A `Shape` node: the SwiftUI shape, filled or stroked.
 struct ShapeNodeView: View {
 

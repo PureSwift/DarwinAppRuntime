@@ -35,6 +35,15 @@ import Testing
         #expect(Entitlements.forCapabilities(bundle, platform: .ios, configuration: .release).isEmpty)
     }
 
+    @Test func letsMacOSAppsAtTheCameraAndTheMicrophone() throws {
+        let bundle = try bundle(FixtureBundle().with(["RTCapabilities": ["camera", "microphone"]]))
+        let release = Entitlements.forCapabilities(bundle, platform: .macos, configuration: .release)
+        #expect(Set(release.keys) == [
+            "com.apple.security.app-sandbox", "com.apple.security.device.camera", "com.apple.security.device.audio-input",
+        ])
+        #expect(Entitlements.forCapabilities(bundle, platform: .ios, configuration: .release).isEmpty)
+    }
+
     @Test func entitlesNFC() throws {
         let tags = try bundle(FixtureBundle().with(["RTCapabilities": ["nfc"], "RTContracts": [["Name": "org.pureswift.nfc.Reader", "Version": 1, "Kind": "contract"]]]))
         #expect(Entitlements.forCapabilities(tags, platform: .ios, configuration: .release)["com.apple.developer.nfc.readersession.formats"] as? [String] == ["TAG"])

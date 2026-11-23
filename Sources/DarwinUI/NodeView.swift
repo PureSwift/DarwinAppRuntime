@@ -55,6 +55,9 @@ struct NodeView: View {
         case "Photo":
             return PhotoViews.view(props)
 
+        case "CameraPreview":
+            return CameraPreviews.view(props)
+
         case "TextEditor":
             let id = model.id
             let store = self.store
