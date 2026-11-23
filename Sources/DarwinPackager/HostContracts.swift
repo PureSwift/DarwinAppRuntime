@@ -1,6 +1,7 @@
 import DynamicAuthentication
 import DynamicBackgroundTasks
 import DynamicBluetooth
+import DynamicCalendar
 import DynamicCamera
 import DynamicClipboard
 import DynamicContacts
@@ -139,6 +140,10 @@ public enum HostContracts {
                 PhotoCallbackProxy.descriptor, PhotosDelegateProxy.descriptor,
             ]),
             Module(name: "DarwinCamera", descriptors: [CameraCaptureProxy.descriptor, CameraCaptureDelegateProxy.descriptor]),
+            Module(name: "DarwinCalendar", descriptors: [
+                CalendarsProxy.descriptor, CalendarRecordProxy.descriptor, CalendarEventRecordProxy.descriptor,
+                CalendarCallbackProxy.descriptor, CalendarsDelegateProxy.descriptor,
+            ]),
             Module(name: "DarwinMedia", descriptors: [MediaPlaybackProxy.descriptor, MediaPlaybackDelegateProxy.descriptor]),
             Module(name: "DarwinModelStore", descriptors: [
                 ModelStoreProxy.descriptor, ModelSchemaProxy.descriptor, ModelEntityProxy.descriptor,
