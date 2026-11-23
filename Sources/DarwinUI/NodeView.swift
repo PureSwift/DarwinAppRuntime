@@ -52,6 +52,9 @@ struct NodeView: View {
         case "VideoPlayer":
             return VideoPlayers.view(props)
 
+        case "Photo":
+            return PhotoViews.view(props)
+
         case "TextEditor":
             let id = model.id
             let store = self.store
